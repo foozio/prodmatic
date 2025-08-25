@@ -1,0 +1,155 @@
+# Production Docker Compose Configuration for ProdMatic
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+
+version: '3.8'
+
+services:
+  # ProdMatic Application
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: prodmatic-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - GITHUB_ID=${GITHUB_ID}
+      - GITHUB_SECRET=${GITHUB_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+    depends_on:
+      - db
+    networks:
+      - prodmatic-network
+    volumes:
+      - ./uploads:/app/uploads  # For local file uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: prodmatic-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-prodmatic}
+      - POSTGRES_USER=${POSTGRES_USER:-prodmatic}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"  # Remove this in production if not needed externally
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d/  # Optional: init scripts
+    networks:
+      - prodmatic-network
+    command: |
+      postgres 
+      -c shared_buffers=256MB 
+      -c effective_cache_size=1GB 
+      -c maintenance_work_mem=64MB 
+      -c checkpoint_completion_target=0.9 
+      -c wal_buffers=16MB 
+      -c default_statistics_target=100 
+      -c random_page_cost=1.1 
+      -c effective_io_concurrency=200 
+      -c work_mem=4MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-prodmatic} -d ${POSTGRES_DB:-prodmatic}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis (Optional - for caching and rate limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: prodmatic-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - prodmatic-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: prodmatic-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+      - ./ssl:/etc/nginx/ssl:ro  # SSL certificates
+      - nginx_cache:/var/cache/nginx
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - prodmatic-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backup Service (Optional)
+  backup:
+    image: postgres:15-alpine
+    container_name: prodmatic-backup
+    restart: "no"  # Run manually or via cron
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-prodmatic}
+      - POSTGRES_USER=${POSTGRES_USER:-prodmatic}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - backup_scripts:/scripts
+    networks:
+      - prodmatic-network
+    depends_on:
+      - db
+    command: |
+      sh -c "
+      echo 'Creating database backup...'
+      pg_dump -h db -U $${POSTGRES_USER} -d $${POSTGRES_DB} > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql
+      echo 'Backup completed'
+      "
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  nginx_cache:
+    driver: local
+  nginx_logs:
+    driver: local
+  backup_scripts:
+    driver: local
+
+networks:
+  prodmatic-network:
+    driver: bridge
+    name: prodmatic_network

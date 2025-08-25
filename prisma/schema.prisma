@@ -1,0 +1,1258 @@
+// ProdMatic - Production-Ready Product Management Platform
+// Database Schema for Multi-tenant Product Lifecycle Management
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication & User Management
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  memberships Membership[]
+  profile     UserProfile?
+
+  // Activity tracking
+  auditLogs     AuditLog[]
+  createdIdeas  Idea[]       @relation("IdeaCreator")
+  assignedTasks Task[]       @relation("TaskAssignee")
+  ownedOKRs     OKR[]        @relation("OKROwner")
+  interviews    Interview[]  @relation("InterviewConductor")
+  documents     Document[]   @relation("DocumentAuthor")
+  kpis          KPI[]        @relation("KPIOwner")
+  experiments   Experiment[] @relation("ExperimentOwner")
+  checklistItems LaunchChecklistItem[]
+
+  @@index([email])
+}
+
+model UserProfile {
+  id       String  @id @default(cuid())
+  userId   String  @unique
+  bio      String?
+  title    String?
+  timezone String?
+  locale   String? @default("en")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Multi-tenant Organization Structure
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  domain      String?
+  logo        String?
+  website     String?
+  settings    Json?    @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  teams       Team[]
+  products    Product[]
+  memberships Membership[]
+  invitations Invitation[]
+  webhooks    Webhook[]
+  auditLogs   AuditLog[]
+
+  @@index([slug])
+  @@index([deletedAt])
+}
+
+model Team {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String
+  description    String?
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      Membership[]
+  products     Product[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([deletedAt])
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  teamId         String?
+  role           Role     @default(STAKEHOLDER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([teamId])
+}
+
+model Invitation {
+  id             String          @id @default(cuid())
+  email          String
+  organizationId String
+  teamId         String?
+  role           Role            @default(STAKEHOLDER)
+  status         InvitationStatus @default(PENDING)
+  token          String          @unique
+  expiresAt      DateTime
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([organizationId])
+}
+
+// Product Lifecycle Management
+model Product {
+  id             String      @id @default(cuid())
+  name           String
+  key            String      @unique
+  description    String?
+  vision         String?
+  lifecycle      Lifecycle   @default(IDEATION)
+  organizationId String
+  settings       Json?       @default("{}")
+  metrics        Json?       @default("{}")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  
+  // Product components
+  ideas         Idea[]
+  customers     Customer[]
+  personas      Persona[]
+  interviews    Interview[]
+  competitors   Competitor[]
+  insights      Insight[]
+  epics         Epic[]
+  features      Feature[]
+  tasks         Task[]
+  sprints       Sprint[]
+  okrs          OKR[]
+  kpis          KPI[]
+  experiments   Experiment[]
+  roadmapItems  RoadmapItem[]
+  releases      Release[]
+  changelogs    Changelog[]
+  flags         FeatureFlag[]
+  risks         Risk[]
+  dependencies  Dependency[]
+  documents     Document[]
+  feedback      Feedback[]
+  announcements Announcement[]
+  sunsetPlan    SunsetPlan?
+
+  @@index([key])
+  @@index([organizationId])
+  @@index([lifecycle])
+  @@index([deletedAt])
+}
+
+// Ideation & Discovery
+model Idea {
+  id            String      @id @default(cuid())
+  title         String
+  description   String
+  problem       String?
+  hypothesis    String?
+  source        String?
+  tags          String[]    @default([])
+  votes         Int         @default(0)
+  effortScore   Int?        // 1-5 scale
+  impactScore   Int?        // 1-5 scale
+  reachScore    Int?        // 1-5 scale
+  confidenceScore Int?      // 1-5 scale
+  priority      Priority    @default(MEDIUM)
+  status        IdeaStatus  @default(SUBMITTED)
+  productId     String
+  creatorId     String
+  assigneeId    String?
+  convertedToEpicId String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  product       Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  creator       User        @relation(name: "IdeaCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  convertedToEpic Epic?     @relation(name: "EpicFromIdea", fields: [convertedToEpicId], references: [id], onDelete: SetNull)
+  insights      Insight[]
+
+  @@index([productId])
+  @@index([creatorId])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+}
+
+model Customer {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  company     String?
+  segment     String?
+  tier        CustomerTier @default(INDIVIDUAL)
+  status      CustomerStatus @default(ACTIVE)
+  attributes  Json?    @default("{}")
+  productId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+  feedback   Feedback[]
+
+  @@index([productId])
+  @@index([segment])
+  @@index([tier])
+  @@index([deletedAt])
+}
+
+model Persona {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  goals       String[]
+  pains       String[]
+  gains       String[]
+  demographics Json?   @default("{}")
+  behaviors   Json?    @default("{}")
+  productId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  interviews Interview[]
+
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+model Interview {
+  id           String        @id @default(cuid())
+  title        String
+  description  String?
+  notes        String?
+  transcript   String?
+  attachments  String[]      @default([])
+  status       InterviewStatus @default(SCHEDULED)
+  scheduledAt  DateTime?
+  conductedAt  DateTime?
+  productId    String
+  customerId   String?
+  personaId    String?
+  conductorId  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  persona   Persona?  @relation(fields: [personaId], references: [id], onDelete: SetNull)
+  conductor User     @relation(name: "InterviewConductor", fields: [conductorId], references: [id], onDelete: Cascade)
+  insights  Insight[]
+
+  @@index([productId])
+  @@index([customerId])
+  @@index([personaId])
+  @@index([conductorId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Competitor {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  website     String?
+  pricing     Json?    @default("{}")
+  strengths   String[]
+  weaknesses  String[]
+  marketShare Float?
+  attributes  Json?    @default("{}")
+  productId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([deletedAt])
+}
+
+model Insight {
+  id          String      @id @default(cuid())
+  title       String
+  description String
+  source      InsightSource
+  confidence  Int         @default(3) // 1-5 scale
+  impact      Impact      @default(MEDIUM)
+  tags        String[]    @default([])
+  productId   String
+  ideaId      String?
+  interviewId String?
+  experimentId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  idea       Idea?       @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  interview  Interview?  @relation(fields: [interviewId], references: [id], onDelete: SetNull)
+  experiment Experiment? @relation(fields: [experimentId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([source])
+  @@index([impact])
+  @@index([deletedAt])
+}
+
+// Delivery Management
+model Epic {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  goal        String?
+  hypothesis  String?
+  acceptanceCriteria String?
+  priority    Priority   @default(MEDIUM)
+  status      EpicStatus @default(NEW)
+  effort      Int?       // story points
+  businessValue Int?
+  productId   String
+  assigneeId  String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  features   Feature[]
+  roadmapItems RoadmapItem[]
+  fromIdeas  Idea[]     @relation(name: "EpicFromIdea")
+
+  @@index([productId])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+}
+
+model Feature {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  specification String?
+  acceptanceCriteria String?
+  priority    Priority      @default(MEDIUM)
+  status      FeatureStatus @default(NEW)
+  effort      Int?          // story points
+  epicId      String?
+  productId   String
+  assigneeId  String?
+  releaseId   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  epic       Epic?     @relation(fields: [epicId], references: [id], onDelete: SetNull)
+  release    Release?  @relation(fields: [releaseId], references: [id], onDelete: SetNull)
+  tasks      Task[]
+  dependencies Dependency[] @relation("FeatureDependencies")
+  dependents   Dependency[] @relation("FeatureDependents")
+  flags      FeatureFlag[]
+
+  @@index([productId])
+  @@index([epicId])
+  @@index([status])
+  @@index([priority])
+  @@index([releaseId])
+  @@index([deletedAt])
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  type        TaskType   @default(STORY)
+  priority    Priority   @default(MEDIUM)
+  status      TaskStatus @default(NEW)
+  effort      Int?       // story points
+  timeEstimate Int?      // hours
+  timeSpent   Int?       // hours
+  featureId   String?
+  productId   String
+  assigneeId  String?
+  sprintId    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  feature   Feature? @relation(fields: [featureId], references: [id], onDelete: SetNull)
+  assignee  User?    @relation(name: "TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  sprint    Sprint?  @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([featureId])
+  @@index([assigneeId])
+  @@index([sprintId])
+  @@index([status])
+  @@index([priority])
+  @@index([deletedAt])
+}
+
+model Sprint {
+  id          String      @id @default(cuid())
+  name        String
+  goal        String?
+  status      SprintStatus @default(PLANNED)
+  startDate   DateTime
+  endDate     DateTime
+  capacity    Int?        // total story points
+  velocity    Int?        // completed story points
+  productId   String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([productId])
+  @@index([status])
+  @@index([startDate])
+  @@index([deletedAt])
+}
+
+// OKR & KPI Management
+model OKR {
+  id          String     @id @default(cuid())
+  objective   String
+  description String?
+  quarter     String     // e.g., "2024-Q1"
+  year        Int
+  status      OKRStatus  @default(ACTIVE)
+  progress    Float      @default(0.0) // 0.0 to 1.0
+  productId   String
+  ownerId     String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner      User        @relation(name: "OKROwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  keyResults KeyResult[]
+
+  @@index([productId])
+  @@index([ownerId])
+  @@index([quarter])
+  @@index([year])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model KeyResult {
+  id          String         @id @default(cuid())
+  description String
+  target      Float
+  current     Float          @default(0.0)
+  unit        String?        // e.g., "%", "users", "$"
+  type        KeyResultType  @default(INCREASE)
+  status      KeyResultStatus @default(ACTIVE)
+  okrId       String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  okr OKR @relation(fields: [okrId], references: [id], onDelete: Cascade)
+
+  @@index([okrId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// Roadmap Management
+model RoadmapItem {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  type        RoadmapType   @default(FEATURE)
+  status      RoadmapStatus @default(PLANNED)
+  lane        RoadmapLane   @default(LATER)
+  quarter     String?       // e.g., "2024-Q1"
+  startDate   DateTime?
+  endDate     DateTime?
+  effort      Int?          // story points
+  confidence  Int?          // 1-5 scale
+  productId   String
+  epicId      String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  epic    Epic?   @relation(fields: [epicId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([epicId])
+  @@index([lane])
+  @@index([quarter])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// Release Management
+model Release {
+  id          String        @id @default(cuid())
+  name        String
+  version     String        // semver
+  description String?
+  notes       String?       // release notes
+  status      ReleaseStatus @default(PLANNED)
+  type        ReleaseType   @default(MINOR)
+  releaseDate DateTime?
+  artifacts   String[]      @default([])
+  productId   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  product         Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  features        Feature[]
+  changelog       Changelog[]
+  checklistItems  LaunchChecklistItem[]
+
+  @@index([productId])
+  @@index([status])
+  @@index([releaseDate])
+  @@index([deletedAt])
+}
+
+model Changelog {
+  id          String          @id @default(cuid())
+  title       String
+  description String
+  type        ChangelogType   @default(FEATURE)
+  visibility  ChangelogVisibility @default(PUBLIC)
+  releaseId   String?
+  productId   String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  release Release? @relation(fields: [releaseId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([releaseId])
+  @@index([type])
+  @@index([visibility])
+  @@index([deletedAt])
+}
+
+// Launch Checklist Management
+model LaunchChecklistItem {
+  id          String                   @id @default(cuid())
+  title       String
+  description String?
+  category    LaunchChecklistCategory  @default(PREPARATION)
+  isRequired  Boolean                  @default(false)
+  isCompleted Boolean                  @default(false)
+  releaseId   String
+  assigneeId  String?
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  deletedAt   DateTime?
+
+  release  Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  assignee User?   @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([releaseId])
+  @@index([assigneeId])
+  @@index([category])
+  @@index([isCompleted])
+  @@index([dueDate])
+  @@index([deletedAt])
+}
+
+// KPI Management  
+model KPI {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  metric      String      // e.g., "Monthly Active Users", "Conversion Rate"
+  target      Float
+  currentValue Float?     @default(0)
+  unit        String?     // e.g., "users", "%", "$"
+  frequency   Frequency   @default(MONTHLY)
+  isActive    Boolean     @default(true)
+  formula     String?     // calculation formula
+  source      String?     // data source
+  category    String?     // e.g., "Growth", "Engagement"
+  productId   String
+  ownerId     String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner   User?   @relation(name: "KPIOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([ownerId])
+  @@index([isActive])
+  @@index([frequency])
+  @@index([category])
+  @@index([deletedAt])
+}
+
+// Experiment Management
+model Experiment {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  hypothesis  String
+  type        ExperimentType   @default(AB_TEST)
+  status      ExperimentStatus @default(DRAFT)
+  audience    String?          // target audience description
+  startDate   DateTime?
+  endDate     DateTime?
+  metrics     Json             @default("[]")
+  variants    Json             @default("[]")
+  results     String?          // experiment results summary
+  conclusion  String?          // final conclusion
+  confidence  Float?           // confidence level 0-1
+  productId   String
+  ownerId     String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  owner   User?   @relation(name: "ExperimentOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  insights Insight[]
+
+  @@index([productId])
+  @@index([ownerId])
+  @@index([type])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([deletedAt])
+}
+
+// Feature Flags
+model FeatureFlag {
+  id          String      @id @default(cuid())
+  name        String
+  key         String      @unique
+  description String?
+  enabled     Boolean     @default(false)
+  rollout     Float       @default(0.0) // 0.0 to 1.0
+  targeting   Json?       @default("{}")
+  variants    Json?       @default("{}")
+  productId   String
+  featureId   String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+
+  product Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  feature Feature? @relation(fields: [featureId], references: [id], onDelete: SetNull)
+
+  @@index([key])
+  @@index([productId])
+  @@index([featureId])
+  @@index([enabled])
+  @@index([deletedAt])
+}
+
+// Risk & Dependency Management
+model Risk {
+  id          String       @id @default(cuid())
+  title       String
+  description String
+  probability RiskLevel    @default(MEDIUM)
+  impact      RiskLevel    @default(MEDIUM)
+  mitigation  String?
+  owner       String?
+  status      RiskStatus   @default(OPEN)
+  dueDate     DateTime?
+  productId   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([status])
+  @@index([probability])
+  @@index([impact])
+  @@index([deletedAt])
+}
+
+model Dependency {
+  id            String           @id @default(cuid())
+  title         String
+  description   String?
+  type          DependencyType   @default(BLOCKS)
+  status        DependencyStatus @default(PENDING)
+  blockedById   String
+  blockingId    String
+  productId     String
+  resolvedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  blockedBy Feature @relation(name: "FeatureDependencies", fields: [blockedById], references: [id], onDelete: Cascade)
+  blocking  Feature @relation(name: "FeatureDependents", fields: [blockingId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([blockedById])
+  @@index([blockingId])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// Documentation
+model Document {
+  id          String        @id @default(cuid())
+  title       String
+  content     String
+  type        DocumentType  @default(PRD)
+  status      DocumentStatus @default(DRAFT)
+  version     Int           @default(1)
+  template    String?
+  productId   String
+  authorId    String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  author  User    @relation(name: "DocumentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([authorId])
+  @@index([type])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// Feedback Management
+model Feedback {
+  id          String         @id @default(cuid())
+  title       String
+  description String
+  source      FeedbackSource @default(PORTAL)
+  type        FeedbackType   @default(FEATURE_REQUEST)
+  priority    Priority       @default(MEDIUM)
+  status      FeedbackStatus @default(SUBMITTED)
+  rating      Int?           // 1-5 scale for NPS/CSAT
+  metadata    Json?          @default("{}")
+  productId   String
+  customerId  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([customerId])
+  @@index([source])
+  @@index([type])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// Communication
+model Announcement {
+  id          String             @id @default(cuid())
+  title       String
+  content     String
+  type        AnnouncementType   @default(UPDATE)
+  audience    AnnouncementAudience @default(INTERNAL)
+  status      AnnouncementStatus @default(DRAFT)
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  productId   String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([type])
+  @@index([audience])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([deletedAt])
+}
+
+// Sunset Management
+model SunsetPlan {
+  id               String      @id @default(cuid())
+  reason           String
+  timeline         Json        @default("{}")
+  migrationPath    String?
+  retentionPolicy  String?
+  communicationPlan String?
+  eolDate          DateTime?   // End of Life
+  eoslDate         DateTime?   // End of Support Life
+  status           SunsetStatus @default(PLANNED)
+  productId        String      @unique
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([eolDate])
+  @@index([deletedAt])
+}
+
+// System & Audit
+model AuditLog {
+  id             String   @id @default(cuid())
+  action         String   // e.g., "CREATE", "UPDATE", "DELETE"
+  entity         String   // e.g., "Product", "Idea", "Release"
+  entityId       String
+  changes        Json?    @default("{}")
+  metadata       Json?    @default("{}")
+  userId         String?
+  organizationId String
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model Webhook {
+  id             String       @id @default(cuid())
+  name           String
+  url            String
+  secret         String?
+  events         String[]     @default([])
+  active         Boolean      @default(true)
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([active])
+  @@index([deletedAt])
+}
+
+// Enums
+enum Role {
+  ADMIN
+  PRODUCT_MANAGER
+  CONTRIBUTOR
+  STAKEHOLDER
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum Lifecycle {
+  IDEATION
+  DISCOVERY
+  DEFINITION
+  DELIVERY
+  LAUNCH
+  GROWTH
+  MATURITY
+  SUNSET
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum Impact {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IdeaStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CONVERTED
+  ARCHIVED
+}
+
+enum CustomerTier {
+  ENTERPRISE
+  BUSINESS
+  INDIVIDUAL
+  FREE
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  CHURNED
+  PROSPECT
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  CONDUCTED
+  CANCELLED
+  NO_SHOW
+}
+
+enum InsightSource {
+  INTERVIEW
+  SURVEY
+  ANALYTICS
+  EXPERIMENT
+  FEEDBACK
+  OBSERVATION
+}
+
+enum EpicStatus {
+  NEW
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum FeatureStatus {
+  NEW
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum TaskType {
+  STORY
+  BUG
+  TASK
+  EPIC
+  SPIKE
+}
+
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  CANCELLED
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum OKRStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum KeyResultType {
+  INCREASE
+  DECREASE
+  MAINTAIN
+  BINARY
+}
+
+enum KeyResultStatus {
+  ACTIVE
+  COMPLETED
+  AT_RISK
+  CANCELLED
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ExperimentType {
+  AB_TEST
+  MULTIVARIATE
+  FEATURE_FLAG
+  QUALITATIVE
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum RoadmapType {
+  EPIC
+  FEATURE
+  INITIATIVE
+  MILESTONE
+}
+
+enum RoadmapStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum RoadmapLane {
+  NOW
+  NEXT
+  LATER
+  PARKED
+}
+
+enum ReleaseStatus {
+  PLANNED
+  IN_PROGRESS
+  RELEASED
+  CANCELLED
+}
+
+enum ReleaseType {
+  MAJOR
+  MINOR
+  PATCH
+  HOTFIX
+}
+
+enum ChangelogType {
+  FEATURE
+  IMPROVEMENT
+  BUG_FIX
+  BREAKING_CHANGE
+  SECURITY
+  DEPRECATED
+}
+
+enum ChangelogVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+enum RiskLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  CLOSED
+}
+
+enum DependencyType {
+  BLOCKS
+  BLOCKED_BY
+  RELATED
+}
+
+enum DependencyStatus {
+  PENDING
+  RESOLVED
+  CANCELLED
+}
+
+enum DocumentType {
+  PRD
+  RFC
+  POST_MORTEM
+  LAUNCH_PLAN
+  SUNSET_PLAN
+  TEMPLATE
+  GUIDE
+}
+
+enum DocumentStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FeedbackSource {
+  PORTAL
+  EMAIL
+  API
+  CSV_IMPORT
+  SURVEY
+  INTERVIEW
+}
+
+enum FeedbackType {
+  FEATURE_REQUEST
+  BUG_REPORT
+  IMPROVEMENT
+  COMPLAINT
+  COMPLIMENT
+  QUESTION
+}
+
+enum FeedbackStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  ARCHIVED
+}
+
+enum AnnouncementType {
+  LAUNCH
+  UPDATE
+  MAINTENANCE
+  DEPRECATION
+  SUNSET
+  GENERAL
+}
+
+enum AnnouncementAudience {
+  INTERNAL
+  EXTERNAL
+  CUSTOMERS
+  STAKEHOLDERS
+  PUBLIC
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SunsetStatus {
+  PLANNED
+  ANNOUNCED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum LaunchChecklistCategory {
+  PREPARATION
+  TESTING
+  DEPLOYMENT
+  MONITORING
+  COMMUNICATION
+  ROLLBACK
+}

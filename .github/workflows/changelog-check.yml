@@ -1,0 +1,99 @@
+name: Changelog Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  changelog-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Check if CHANGELOG.md was updated
+      id: changelog
+      run: |
+        # Get the list of changed files
+        CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+        
+        # Check if CHANGELOG.md is in the changed files
+        if echo "$CHANGED_FILES" | grep -q "CHANGELOG.md"; then
+          echo "changelog_updated=true" >> $GITHUB_OUTPUT
+          echo "✅ CHANGELOG.md has been updated"
+        else
+          echo "changelog_updated=false" >> $GITHUB_OUTPUT
+          echo "❌ CHANGELOG.md has not been updated"
+        fi
+        
+        # Check if there are any source code changes that would require changelog update
+        SOURCE_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.(ts|tsx|js|jsx|sql|prisma)$' || true)
+        
+        if [ -n "$SOURCE_CHANGES" ]; then
+          echo "source_changes=true" >> $GITHUB_OUTPUT
+          echo "📝 Source code changes detected:"
+          echo "$SOURCE_CHANGES"
+        else
+          echo "source_changes=false" >> $GITHUB_OUTPUT
+          echo "📋 No source code changes detected"
+        fi
+    
+    - name: Comment on PR if changelog missing
+      if: steps.changelog.outputs.source_changes == 'true' && steps.changelog.outputs.changelog_updated == 'false'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## 📝 Changelog Update Required
+            
+            This PR contains source code changes but the CHANGELOG.md file has not been updated.
+            
+            Please update the changelog using one of these methods:
+            
+            ### Option 1: Use the changelog script
+            \`\`\`bash
+            npm run changelog:add [version] [type] "[description]"
+            \`\`\`
+            
+            **Example:**
+            \`\`\`bash
+            npm run changelog:add 1.0.1 fixed "Fixed authentication redirect issue"
+            npm run changelog:add 1.1.0 added "Added new dashboard analytics feature"
+            \`\`\`
+            
+            ### Option 2: Manual update
+            Edit \`CHANGELOG.md\` directly following the [Keep a Changelog](https://keepachangelog.com/) format.
+            
+            ### Change types:
+            - **added** for new features
+            - **changed** for changes in existing functionality  
+            - **deprecated** for soon-to-be removed features
+            - **removed** for now removed features
+            - **fixed** for any bug fixes
+            - **security** for vulnerability fixes
+            
+            Thank you for keeping our changelog up to date! 🙏`
+          });
+    
+    - name: Fail if changelog required but missing
+      if: steps.changelog.outputs.source_changes == 'true' && steps.changelog.outputs.changelog_updated == 'false'
+      run: |
+        echo "❌ CHANGELOG.md update required for source code changes"
+        echo "Please update the changelog before merging this PR"
+        exit 1
+    
+    - name: Success message
+      if: steps.changelog.outputs.source_changes == 'false' || steps.changelog.outputs.changelog_updated == 'true'
+      run: |
+        if [ "${{ steps.changelog.outputs.source_changes }}" == "false" ]; then
+          echo "✅ No source code changes detected, changelog update not required"
+        else
+          echo "✅ CHANGELOG.md has been updated with source code changes"
+        fi
