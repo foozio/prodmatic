@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser, requireRole, logActivity } from "@/lib/auth-helpers";
+import { Role } from "@prisma/client";
 
 // Schema validation for team operations
 const createTeamSchema = z.object({
@@ -182,7 +183,7 @@ export async function deleteTeam(formData: FormData) {
       include: {
         organization: true,
         products: true,
-        memberships: true,
+        members: true,
       },
     });
 
@@ -198,7 +199,7 @@ export async function deleteTeam(formData: FormData) {
       throw new Error("Cannot delete team with active products. Please reassign or delete products first.");
     }
 
-    // Delete team memberships first
+    // Delete team members first
     await db.membership.deleteMany({
       where: { teamId: team.id },
     });
@@ -289,7 +290,7 @@ export async function addTeamMember(prevState: any, formData: FormData) {
         teamId: teamId,
         userId: userId,
         organizationId: team.organizationId,
-        role: role, // Set the team-specific role
+        role: role as Role, // Set the team-specific role
       },
     });
 
@@ -342,7 +343,7 @@ export async function updateTeamMemberRole(prevState: any, formData: FormData) {
       },
     });
 
-    if (!teamMembership) {
+    if (!teamMembership || !teamMembership.team) {
       return { success: false, error: "Team membership not found" };
     }
 
@@ -353,7 +354,7 @@ export async function updateTeamMemberRole(prevState: any, formData: FormData) {
     const updatedMembership = await db.membership.update({
       where: { id: membershipId },
       data: {
-        role: role,
+        role: role as Role,
       },
     });
 
@@ -379,6 +380,11 @@ export async function updateTeamMemberRole(prevState: any, formData: FormData) {
     console.error("Failed to update team member role:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to update team member role" };
   }
+}
+
+export async function updateTeamMemberRoleForm(formData: FormData) {
+  const result = await updateTeamMemberRole(null, formData);
+  return result;
 }
 
 export async function removeTeamMember(formData: FormData) {
@@ -407,7 +413,7 @@ export async function removeTeamMember(formData: FormData) {
       },
     });
 
-    if (!teamMembership) {
+    if (!teamMembership || !teamMembership.team) {
       throw new Error("Team membership not found");
     }
 

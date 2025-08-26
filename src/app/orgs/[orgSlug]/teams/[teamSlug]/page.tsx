@@ -1,36 +1,26 @@
-import { 
-  getCurrentUser, 
-  requireRole 
-} from "@/lib/auth-helpers";
+import { getCurrentUser, requireRole } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TeamMemberAdder } from "@/components/team-member-adder";
-import { removeTeamMember, updateTeamMemberRole } from "@/server/actions/teams";
+import { createTeam, deleteTeam, updateTeamMemberRoleForm, removeTeamMember } from "@/server/actions/teams";
 import { 
   Users, 
+  Package, 
   Settings, 
   UserPlus, 
-  UserMinus, 
-  Package 
+  UserMinus,
+  ArrowLeft
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
 interface TeamDetailPageProps {
@@ -49,7 +39,7 @@ export default async function TeamDetailPage({
     redirect("/auth/signin");
   }
 
-  const organization = await db.organization.findUnique({
+  const organization = await db.organization.findFirst({
     where: { slug: params.orgSlug },
   });
 
@@ -63,7 +53,7 @@ export default async function TeamDetailPage({
       organizationId: organization.id,
     },
     include: {
-      memberships: {
+      members: {
         include: {
           user: {
             include: {
@@ -101,14 +91,14 @@ export default async function TeamDetailPage({
 
   const currentMembership = user.memberships.find(m => m.organizationId === organization.id);
   const canManageTeam = currentMembership?.role === "ADMIN" || currentMembership?.role === "PRODUCT_MANAGER";
-  const isTeamMember = team.memberships.some(m => m.userId === user.id);
+  const isTeamMember = team.members.some(m => m.userId === user.id);
 
   // Get organization members who are not in this team
   const availableMembers = await db.membership.findMany({
     where: {
       organizationId: organization.id,
       userId: {
-        notIn: team.memberships.map(m => m.userId),
+        notIn: team.members.map(m => m.userId),
       },
     },
     include: {
@@ -125,11 +115,43 @@ export default async function TeamDetailPage({
     },
   });
 
+  // Wrapper functions for form actions
+  async function handleUpdateTeamMemberRole(formData: FormData) {
+    "use server";
+    try {
+      const result = await updateTeamMemberRoleForm(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to update team member role:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error updating team member role:", error);
+    }
+    revalidatePath(`/orgs/${params.orgSlug}/teams/${params.teamSlug}`);
+  }
+
+  async function handleRemoveTeamMember(formData: FormData) {
+    "use server";
+    try {
+      const result = await removeTeamMember(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to remove team member:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error removing team member:", error);
+    }
+    revalidatePath(`/orgs/${params.orgSlug}/teams/${params.teamSlug}`);
+  }
+
   return (
     <div className="space-y-6">
       {/* Team Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/orgs/${params.orgSlug}/teams`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
           <Avatar className="h-16 w-16">
             <AvatarFallback className="bg-primary text-primary-foreground text-xl">
               {team.name.charAt(0).toUpperCase()}
@@ -141,7 +163,7 @@ export default async function TeamDetailPage({
               {team.description || "No description provided"}
             </p>
             <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-              <span>{team.memberships.length} members</span>
+              <span>{team.members.length} members</span>
               <span>•</span>
               <span>{team.products.length} products</span>
               <span>•</span>
@@ -182,7 +204,7 @@ export default async function TeamDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {team.memberships.length === 0 ? (
+            {team.members.length === 0 ? (
               <div className="text-center py-6">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground">No team members yet</p>
@@ -195,7 +217,7 @@ export default async function TeamDetailPage({
               </div>
             ) : (
               <div className="space-y-3">
-                {team.memberships.map((membership) => (
+                {team.members.map((membership) => (
                   <div
                     key={membership.id}
                     className="flex items-center justify-between p-3 border rounded-lg"
@@ -233,7 +255,7 @@ export default async function TeamDetailPage({
                     </div>
                     <div className="flex items-center space-x-2">
                       {canManageTeam && membership.userId !== user.id ? (
-                        <form action={updateTeamMemberRole} className="flex items-center space-x-2">
+                        <form action={handleUpdateTeamMemberRole} className="flex items-center space-x-2">
                           <input type="hidden" name="membershipId" value={membership.id} />
                           <Select name="role" defaultValue={membership.role}>
                             <SelectTrigger className="w-40">
@@ -254,7 +276,7 @@ export default async function TeamDetailPage({
                       )}
                       
                       {canManageTeam && membership.userId !== user.id && (
-                        <form action={removeTeamMember}>
+                        <form action={handleRemoveTeamMember}>
                           <input type="hidden" name="membershipId" value={membership.id} />
                           <Button type="submit" size="sm" variant="destructive">
                             <UserMinus className="h-4 w-4" />
@@ -301,12 +323,12 @@ export default async function TeamDetailPage({
                     <div className="flex items-center justify-between mb-2">
                       <div className="font-medium">{product.name}</div>
                       <Badge variant={
-                        product.stage === "LAUNCH" ? "default" :
-                        product.stage === "GROWTH" ? "secondary" :
-                        product.stage === "MATURITY" ? "outline" :
+                        product.lifecycle === "LAUNCH" ? "default" :
+                        product.lifecycle === "GROWTH" ? "secondary" :
+                        product.lifecycle === "MATURITY" ? "outline" :
                         "destructive"
                       }>
-                        {product.stage}
+                        {product.lifecycle}
                       </Badge>
                     </div>
                     {product.description && (
@@ -346,7 +368,7 @@ export default async function TeamDetailPage({
         <CardContent>
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold">{team.memberships.length}</div>
+              <div className="text-2xl font-bold">{team.members.length}</div>
               <div className="text-sm text-muted-foreground">Active Members</div>
             </div>
             <div>

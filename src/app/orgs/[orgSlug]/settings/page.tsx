@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { updateOrganization, deleteOrganization } from "@/server/actions/organizations";
 import { Settings, Users, Shield, Trash2 } from "lucide-react";
+import { revalidatePath } from "next/cache";
 
 interface OrganizationSettingsPageProps {
   params: Promise<{
@@ -53,6 +54,29 @@ export default async function OrganizationSettingsPage({
   const memberCount = organization.memberships.length;
   const teamCount = organization.teams.length;
 
+  // Wrapper functions for form actions
+  async function handleUpdateOrganization(formData: FormData) {
+    "use server";
+    try {
+      const result = await updateOrganization(formData);
+      if (!result.success) {
+        console.error("Failed to update organization:", result.error);
+      }
+    } catch (error) {
+      console.error("Error updating organization:", error);
+    }
+    revalidatePath(`/orgs/${orgSlug}/settings`);
+  }
+
+  async function handleDeleteOrganization(formData: FormData) {
+    "use server";
+    try {
+      await deleteOrganization(formData);
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -75,7 +99,7 @@ export default async function OrganizationSettingsPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={updateOrganization} className="space-y-4">
+            <form action={handleUpdateOrganization} className="space-y-4">
               <input type="hidden" name="organizationId" value={organization.id} />
               
               <div className="grid grid-cols-2 gap-4">
@@ -151,7 +175,7 @@ export default async function OrganizationSettingsPage({
               </div>
               <div className="text-center">
                 <Badge variant="secondary" className="text-sm">
-                  {organization.plan || "Free"}
+                  Free
                 </Badge>
                 <div className="text-sm text-muted-foreground">Plan</div>
               </div>
@@ -214,7 +238,7 @@ export default async function OrganizationSettingsPage({
                   Permanently delete this organization and all its data
                 </div>
               </div>
-              <form action={deleteOrganization}>
+              <form action={handleDeleteOrganization}>
                 <input type="hidden" name="organizationId" value={organization.id} />
                 <Button type="submit" variant="destructive" size="sm">
                   Delete

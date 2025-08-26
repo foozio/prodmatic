@@ -238,7 +238,7 @@ export default async function KPIDashboardPage({
             
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.status || ""}
+              defaultValue={resolvedSearchParams.status || ""}
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -247,7 +247,7 @@ export default async function KPIDashboardPage({
 
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.frequency || ""}
+              defaultValue={resolvedSearchParams.frequency || ""}
             >
               <option value="">All Frequencies</option>
               <option value="DAILY">Daily</option>
@@ -259,7 +259,7 @@ export default async function KPIDashboardPage({
 
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.owner || ""}
+              defaultValue={resolvedSearchParams.owner || ""}
             >
               <option value="">All Owners</option>
               {teamMembers.map((member) => (
@@ -285,7 +285,7 @@ export default async function KPIDashboardPage({
                 </p>
                 {canManageKPIs && (
                   <Button asChild>
-                    <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/new`}>
+                    <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/new`}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create First KPI
                     </Link>
@@ -309,7 +309,7 @@ export default async function KPIDashboardPage({
                           <div className="flex items-center space-x-2">
                             <h3 className="text-lg font-semibold">
                               <Link
-                                href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/${kpi.id}`}
+                                href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/${kpi.id}`}
                                 className="hover:underline"
                               >
                                 {kpi.name}
@@ -376,7 +376,7 @@ export default async function KPIDashboardPage({
                       
                       <div className="flex items-center space-x-1">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/${kpi.id}`}>
+                          <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/${kpi.id}`}>
                             View
                           </Link>
                         </Button>

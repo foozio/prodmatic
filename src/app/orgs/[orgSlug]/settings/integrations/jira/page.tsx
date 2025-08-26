@@ -131,7 +131,7 @@ export default async function JiraIntegrationPage({
     if (result.success) {
       redirect(`/orgs/${params.orgSlug}/settings/integrations/jira?test=success`);
     } else {
-      redirect(`/orgs/${params.orgSlug}/settings/integrations/jira?test=failed&error=${encodeURIComponent(result.error)}`);
+      redirect(`/orgs/${params.orgSlug}/settings/integrations/jira?test=failed&error=${encodeURIComponent(result.error || "Unknown error")}`);
     }
   }
 

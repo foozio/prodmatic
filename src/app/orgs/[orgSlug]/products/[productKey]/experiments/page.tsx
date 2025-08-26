@@ -232,7 +232,7 @@ export default async function ExperimentsPage({
             
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.status || ""}
+              defaultValue={resolvedSearchParams.status || ""}
             >
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>
@@ -244,7 +244,7 @@ export default async function ExperimentsPage({
 
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.type || ""}
+              defaultValue={resolvedSearchParams.type || ""}
             >
               <option value="">All Types</option>
               <option value="AB_TEST">A/B Test</option>
@@ -269,7 +269,7 @@ export default async function ExperimentsPage({
                 </p>
                 {canManageExperiments && (
                   <Button asChild>
-                    <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments/new`}>
+                    <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments/new`}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create First Experiment
                     </Link>
@@ -295,7 +295,7 @@ export default async function ExperimentsPage({
                           <div className="flex items-center space-x-2">
                             <h3 className="text-lg font-semibold">
                               <Link
-                                href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments/${experiment.id}`}
+                                href={`/orgs/${orgSlug}/products/${productKey}/experiments/${experiment.id}`}
                                 className="hover:underline"
                               >
                                 {experiment.name}
@@ -384,7 +384,7 @@ export default async function ExperimentsPage({
                       
                       <div className="flex items-center space-x-1">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments/${experiment.id}`}>
+                          <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments/${experiment.id}`}>
                             View
                           </Link>
                         </Button>

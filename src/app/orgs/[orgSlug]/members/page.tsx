@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTable } from "@/components/ui/data-table";
-import { inviteUser, removeMember, updateMemberRole } from "@/server/actions/organizations";
+import { inviteUser, removeMember, updateMembershipRole } from "@/server/actions/organizations";
 import { UserPlus, Users, Mail, MoreHorizontal } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { revalidatePath } from "next/cache";
 
 interface OrganizationMembersPageProps {
   params: Promise<{
@@ -65,6 +66,46 @@ export default async function OrganizationMembersPage({
   const currentMembership = organization.memberships.find(m => m.userId === user.id);
   const canManageMembers = currentMembership?.role === "ADMIN";
 
+  // Wrapper functions for form actions
+  async function handleInviteUser(formData: FormData) {
+    "use server";
+    try {
+      const result = await inviteUser(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to invite user:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error inviting user:", error);
+    }
+    revalidatePath(`/orgs/${orgSlug}/members`);
+  }
+
+  async function handleUpdateMembershipRole(formData: FormData) {
+    "use server";
+    try {
+      const result = await updateMembershipRole(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to update member role:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error updating member role:", error);
+    }
+    revalidatePath(`/orgs/${orgSlug}/members`);
+  }
+
+  async function handleRemoveMember(formData: FormData) {
+    "use server";
+    try {
+      const result = await removeMember(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to remove member:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error removing member:", error);
+    }
+    revalidatePath(`/orgs/${orgSlug}/members`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -96,7 +137,7 @@ export default async function OrganizationMembersPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={inviteUser} className="space-y-4">
+              <form action={handleInviteUser} className="space-y-4">
                 <input type="hidden" name="organizationId" value={organization.id} />
                 
                 <div className="grid grid-cols-3 gap-4">
@@ -222,7 +263,7 @@ export default async function OrganizationMembersPage({
                   </div>
                   <div className="flex items-center space-x-2">
                     {canManageMembers && membership.userId !== user.id ? (
-                      <form action={updateMemberRole} className="flex items-center space-x-2">
+                      <form action={handleUpdateMembershipRole} className="flex items-center space-x-2">
                         <input type="hidden" name="membershipId" value={membership.id} />
                         <Select name="role" defaultValue={membership.role}>
                           <SelectTrigger className="w-40">
@@ -244,7 +285,7 @@ export default async function OrganizationMembersPage({
                     )}
                     
                     {canManageMembers && membership.userId !== user.id && (
-                      <form action={removeMember}>
+                      <form action={handleRemoveMember}>
                         <input type="hidden" name="membershipId" value={membership.id} />
                         <Button type="submit" size="sm" variant="destructive">
                           Remove

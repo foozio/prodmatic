@@ -11,6 +11,7 @@ import { TeamMemberModal } from "@/components/team-member-modal";
 import { createTeam, deleteTeam } from "@/server/actions/teams";
 import { Users, Plus, Settings, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
 interface OrganizationTeamsPageProps {
@@ -33,7 +34,7 @@ export default async function OrganizationTeamsPage({
     include: {
       teams: {
         include: {
-          memberships: {
+          members: {
             include: {
               user: {
                 include: {
@@ -67,8 +68,35 @@ export default async function OrganizationTeamsPage({
   // Check if user has access
   await requireRole(user.id, organization.id, ["ADMIN", "PRODUCT_MANAGER"]);
 
-  const currentMembership = organization.memberships.find(m => m.userId === user.id);
+  const currentMembership = organization.memberships.find((m: any) => m.userId === user.id);
   const canManageTeams = currentMembership?.role === "ADMIN" || currentMembership?.role === "PRODUCT_MANAGER";
+
+  // Wrapper functions for form actions
+  async function handleCreateTeam(formData: FormData) {
+    "use server";
+    try {
+      const result = await createTeam(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to create team:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error creating team:", error);
+    }
+    revalidatePath(`/orgs/${params.orgSlug}/teams`);
+  }
+
+  async function handleDeleteTeam(formData: FormData) {
+    "use server";
+    try {
+      const result = await deleteTeam(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to delete team:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error deleting team:", error);
+    }
+    revalidatePath(`/orgs/${params.orgSlug}/teams`);
+  }
 
   return (
     <div className="space-y-6">
@@ -101,7 +129,7 @@ export default async function OrganizationTeamsPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={createTeam} className="space-y-4">
+              <form action={handleCreateTeam} className="space-y-4">
                 <input type="hidden" name="organizationId" value={organization.id} />
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -162,7 +190,7 @@ export default async function OrganizationTeamsPage({
               </CardContent>
             </Card>
           ) : (
-            organization.teams.map((team) => (
+            organization.teams.map((team: any) => (
               <Card key={team.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -194,7 +222,7 @@ export default async function OrganizationTeamsPage({
                               <Settings className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <form action={deleteTeam}>
+                          <form action={handleDeleteTeam}>
                             <input type="hidden" name="teamId" value={team.id} />
                             <Button type="submit" variant="destructive" size="sm">
                               <Trash2 className="h-4 w-4" />
@@ -208,7 +236,7 @@ export default async function OrganizationTeamsPage({
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold">{team.memberships.length}</div>
+                      <div className="text-2xl font-bold">{team.members.length}</div>
                       <div className="text-sm text-muted-foreground">Members</div>
                     </div>
                     <div className="text-center">
@@ -230,19 +258,18 @@ export default async function OrganizationTeamsPage({
                         <TeamMemberModal 
                           teamId={team.id}
                           teamName={team.name}
-                          organizationId={organization.id}
-                          availableMembers={organization.memberships.filter(m => 
-                            !team.memberships.some(tm => tm.userId === m.userId)
+                          availableMembers={organization.memberships.filter((m: any) => 
+                            !team.members.some((tm: any) => tm.userId === m.userId)
                           )}
                         />
                       )}
                     </div>
                     
-                    {team.memberships.length === 0 ? (
+                    {team.members.length === 0 ? (
                       <p className="text-sm text-muted-foreground">No members yet</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {team.memberships.slice(0, 6).map((membership) => (
+                        {team.members.slice(0, 6).map((membership: any) => (
                           <div
                             key={membership.id}
                             className="flex items-center space-x-2 bg-muted rounded-full px-3 py-1"
@@ -263,10 +290,10 @@ export default async function OrganizationTeamsPage({
                             </span>
                           </div>
                         ))}
-                        {team.memberships.length > 6 && (
+                        {team.members.length > 6 && (
                           <div className="flex items-center space-x-2 bg-muted rounded-full px-3 py-1">
                             <span className="text-sm text-muted-foreground">
-                              +{team.memberships.length - 6} more
+                              +{team.members.length - 6} more
                             </span>
                           </div>
                         )}

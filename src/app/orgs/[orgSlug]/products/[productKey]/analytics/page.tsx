@@ -252,7 +252,7 @@ export default async function AnalyticsPage({
           </CardHeader>
           <CardContent>
             <Button className="w-full" asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis`}>
                 View KPI Dashboard
               </Link>
             </Button>
@@ -271,7 +271,7 @@ export default async function AnalyticsPage({
           </CardHeader>
           <CardContent>
             <Button className="w-full" asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments`}>
                 View Experiments
               </Link>
             </Button>
@@ -290,7 +290,7 @@ export default async function AnalyticsPage({
           </CardHeader>
           <CardContent>
             <Button className="w-full" asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/flags`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/flags`}>
                 Manage Flags
               </Link>
             </Button>
@@ -306,7 +306,7 @@ export default async function AnalyticsPage({
             <div className="flex items-center justify-between">
               <CardTitle>Recent KPIs</CardTitle>
               <Button variant="ghost" size="sm" asChild>
-                <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis`}>
+                <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis`}>
                   View All
                 </Link>
               </Button>
@@ -319,7 +319,7 @@ export default async function AnalyticsPage({
                 <p className="text-sm text-muted-foreground">No KPIs yet</p>
                 {canManageKPIs && (
                   <Button variant="outline" size="sm" className="mt-2" asChild>
-                    <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/new`}>
+                    <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/new`}>
                       Create First KPI
                     </Link>
                   </Button>
@@ -372,7 +372,7 @@ export default async function AnalyticsPage({
             <div className="flex items-center justify-between">
               <CardTitle>Recent Experiments</CardTitle>
               <Button variant="ghost" size="sm" asChild>
-                <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments`}>
+                <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments`}>
                   View All
                 </Link>
               </Button>
@@ -385,7 +385,7 @@ export default async function AnalyticsPage({
                 <p className="text-sm text-muted-foreground">No experiments yet</p>
                 {canManageKPIs && (
                   <Button variant="outline" size="sm" className="mt-2" asChild>
-                    <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments/new`}>
+                    <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments/new`}>
                       Create First Experiment
                     </Link>
                   </Button>

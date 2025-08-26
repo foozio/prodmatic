@@ -123,7 +123,7 @@ export default async function GitHubIntegrationPage({
     if (result.success) {
       redirect(`/orgs/${params.orgSlug}/settings/integrations/github?test=success`);
     } else {
-      redirect(`/orgs/${params.orgSlug}/settings/integrations/github?test=failed&error=${encodeURIComponent(result.error)}`);
+      redirect(`/orgs/${params.orgSlug}/settings/integrations/github?test=failed&error=${encodeURIComponent(result.error || "Unknown error")}`);
     }
   }
 

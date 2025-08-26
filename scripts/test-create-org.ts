@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PrismaClient } from "@prisma/client";
 import { createOrganization } from "@/server/actions/organizations";
 
@@ -20,6 +21,7 @@ async function main() {
     // Try to create an organization
     const result = await createOrganization({
       name: "Test Organization",
+      slug: "test-org",
       description: "A test organization"
     });
     

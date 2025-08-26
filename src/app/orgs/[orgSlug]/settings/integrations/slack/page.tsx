@@ -136,7 +136,7 @@ export default async function SlackIntegrationPage({
     if (result.success) {
       redirect(`/orgs/${params.orgSlug}/settings/integrations/slack?test=success`);
     } else {
-      redirect(`/orgs/${params.orgSlug}/settings/integrations/slack?test=failed&error=${encodeURIComponent(result.error)}`);
+      redirect(`/orgs/${params.orgSlug}/settings/integrations/slack?test=failed&error=${encodeURIComponent(result.error || "Unknown error")}`);
     }
   }
 

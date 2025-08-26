@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { updateProduct, deleteProduct } from "@/server/actions/products";
 import { Settings, Package, Trash2, ArrowLeft } from "lucide-react";
+import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
 interface ProductSettingsPageProps {
@@ -83,6 +84,33 @@ export default async function ProductSettingsPage({
 
   const totalItems = Object.values(product._count).reduce((sum, count) => sum + count, 0);
 
+  // Wrapper functions for form actions
+  async function handleUpdateProduct(formData: FormData) {
+    "use server";
+    try {
+      const result = await updateProduct(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to update product:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error updating product:", error);
+    }
+    revalidatePath(`/orgs/${params.orgSlug}/products/${params.productKey}/settings`);
+  }
+
+  async function handleDeleteProduct(formData: FormData) {
+    "use server";
+    try {
+      const result = await deleteProduct(formData);
+      if ('success' in result && !result.success) {
+        console.error("Failed to delete product:", 'error' in result ? result.error : "Unknown error");
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+    }
+    redirect(`/orgs/${params.orgSlug}/products`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
@@ -112,7 +140,7 @@ export default async function ProductSettingsPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={updateProduct} className="space-y-4">
+            <form action={handleUpdateProduct} className="space-y-4">
               <input type="hidden" name="productId" value={product.id} />
               
               <div className="grid grid-cols-2 gap-4">
@@ -334,7 +362,7 @@ export default async function ProductSettingsPage({
                     </div>
                   )}
                 </div>
-                <form action={deleteProduct}>
+                <form action={handleDeleteProduct}>
                   <input type="hidden" name="productId" value={product.id} />
                   <Button 
                     type="submit" 

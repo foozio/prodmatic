@@ -208,7 +208,7 @@ export default async function NewDocumentPage({
 
                 <div className="flex justify-end space-x-2">
                   <Button variant="outline" asChild>
-                    <Link href={`/orgs/${params.orgSlug}/documents`}>
+                    <Link href={`/orgs/${orgSlug}/documents`}>
                       Cancel
                     </Link>
                   </Button>

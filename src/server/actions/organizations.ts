@@ -1,27 +1,28 @@
-"use server";
-
-import { db } from "@/lib/db";
-import { getCurrentUser, createAuditLog, requireRole, logActivity } from "@/lib/auth-helpers";
-import { generateSlug } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
 import { z } from "zod";
+import { db } from "@/lib/db";
+import { getCurrentUser, requireRole, logActivity, createAuditLog } from "@/lib/auth-helpers";
+import { Role } from "@prisma/client";
+// createAuditLog is now imported from auth-helpers
+// import { createAuditLog } from "@/lib/audit";
 
+// Schema validation
 const createOrganizationSchema = z.object({
-  name: z.string().min(1, "Organization name is required"),
+  name: z.string().min(1).max(100),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format"),
   description: z.string().optional(),
 });
 
 const updateOrganizationSchema = z.object({
-  name: z.string().min(1, "Organization name is required"),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format").optional(),
   description: z.string().optional(),
-  domain: z.string().optional(),
-  logo: z.string().optional(),
 });
 
 export async function createOrganization(data: {
   name: string;
+  slug: string;
   description?: string;
 }) {
   try {
@@ -31,47 +32,21 @@ export async function createOrganization(data: {
     }
 
     const validatedData = createOrganizationSchema.parse(data);
-    const slug = generateSlug(validatedData.name);
 
-    // Check if slug already exists
-    const existingOrg = await db.organization.findUnique({
-      where: { slug },
+    const organization = await db.organization.create({
+      data: {
+        ...validatedData,
+        settings: {},
+      },
     });
 
-    if (existingOrg) {
-      return { success: false, error: "Organization name already taken" };
-    }
-
-    const organization = await db.$transaction(async (tx) => {
-      // Create organization
-      const org = await tx.organization.create({
-        data: {
-          name: validatedData.name,
-          slug,
-          description: validatedData.description,
-        },
-      });
-
-      // Add user as admin
-      await tx.membership.create({
-        data: {
-          userId: user.id,
-          organizationId: org.id,
-          role: Role.ADMIN,
-        },
-      });
-
-      // Create default team
-      await tx.team.create({
-        data: {
-          name: "General",
-          slug: "general",
-          description: "Default team for all organization members",
-          organizationId: org.id,
-        },
-      });
-
-      return org;
+    // Create membership for the creator
+    await db.membership.create({
+      data: {
+        userId: user.id,
+        organizationId: organization.id,
+        role: "ADMIN",
+      },
     });
 
     await createAuditLog({
@@ -87,7 +62,7 @@ export async function createOrganization(data: {
     return { success: true, data: organization };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0].message };
     }
     console.error("Error creating organization:", error);
     return { success: false, error: "Failed to create organization" };
@@ -137,7 +112,7 @@ export async function updateOrganizationLegacy(
     return { success: true, data: organization };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0].message };
     }
     console.error("Error updating organization:", error);
     return { success: false, error: "Failed to update organization" };
@@ -334,9 +309,7 @@ export async function updateOrganization(formData: FormData) {
     return { success: true, organization };
   } catch (error) {
     console.error("Failed to update organization:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to update organization"
-    );
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update organization" };
   }
 }
 
@@ -406,6 +379,127 @@ export async function deleteOrganization(formData: FormData) {
   }
 }
 
+export async function updateMembershipRole(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth/signin");
+  }
+
+  try {
+    const membershipId = formData.get("membershipId") as string;
+    const role = formData.get("role") as string;
+
+    if (!membershipId || !role) {
+      return { success: false, error: "Membership ID and role are required" };
+    }
+
+    // Get membership with organization
+    const membership = await db.membership.findUnique({
+      where: { id: membershipId },
+      include: {
+        organization: true,
+      },
+    });
+
+    if (!membership) {
+      return { success: false, error: "Membership not found" };
+    }
+
+    // Check permissions
+    await requireRole(user.id, membership.organizationId, ["ADMIN"]);
+
+    // Update member role
+    const updatedMembership = await db.membership.update({
+      where: { id: membershipId },
+      data: {
+        role: role as Role,
+      },
+    });
+
+    // Log activity
+    await logActivity({
+      userId: user.id,
+      organizationId: membership.organizationId,
+      action: "MEMBER_ROLE_UPDATED",
+      entityType: "USER",
+      entityId: membership.userId,
+      metadata: {
+        organizationName: membership.organization.name,
+        updatedUserId: membership.userId,
+        oldRole: membership.role,
+        newRole: role,
+      },
+    });
+
+    revalidatePath(`/orgs/${membership.organization.slug}/members`);
+    return { success: true, membership: updatedMembership };
+  } catch (error) {
+    console.error("Failed to update member role:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update member role" };
+  }
+}
+
+export async function removeMember(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth/signin");
+  }
+
+  try {
+    const membershipId = formData.get("membershipId") as string;
+
+    if (!membershipId) {
+      throw new Error("Membership ID is required");
+    }
+
+    // Get membership with organization
+    const membership = await db.membership.findUnique({
+      where: { id: membershipId },
+      include: {
+        organization: true,
+        user: true,
+      },
+    });
+
+    if (!membership) {
+      throw new Error("Membership not found");
+    }
+
+    // Check permissions
+    await requireRole(user.id, membership.organizationId, ["ADMIN"]);
+
+    // Prevent removing yourself
+    if (user.id === membership.userId) {
+      throw new Error("Cannot remove yourself");
+    }
+
+    // Delete membership
+    await db.membership.delete({
+      where: { id: membershipId },
+    });
+
+    // Log activity
+    await logActivity({
+      userId: user.id,
+      organizationId: membership.organizationId,
+      action: "MEMBER_REMOVED",
+      entityType: "USER",
+      entityId: membership.userId,
+      metadata: {
+        organizationName: membership.organization.name,
+        removedUserId: membership.userId,
+        removedUserEmail: membership.user.email,
+      },
+    });
+
+    revalidatePath(`/orgs/${membership.organization.slug}/members`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to remove member:", error);
+    throw new Error(error instanceof Error ? error.message : "Failed to remove member");
+  }
+}
+
 export async function inviteUser(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
@@ -463,7 +557,6 @@ export async function inviteUser(formData: FormData) {
         organizationId,
         email,
         role: role as Role,
-        invitedById: user.id,
         token: crypto.randomUUID(),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       },
@@ -479,202 +572,19 @@ export async function inviteUser(formData: FormData) {
       userId: user.id,
       organizationId,
       action: "USER_INVITED",
-      entityType: "INVITATION",
-      entityId: invitation.id,
+      entityType: "USER",
+      entityId: email,
       metadata: {
-        invitedEmail: email,
-        role,
         organizationName: organization?.name,
+        invitedEmail: email,
+        role: role,
       },
     });
-
-    // TODO: Send invitation email
-    console.log(`Invitation created for ${email} to join ${organization?.name}`);
 
     revalidatePath(`/orgs/${organization?.slug}/members`);
     return { success: true, invitation };
   } catch (error) {
     console.error("Failed to invite user:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to invite user"
-    );
-  }
-}
-
-export async function removeMember(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/auth/signin");
-  }
-
-  try {
-    const membershipId = formData.get("membershipId") as string;
-
-    if (!membershipId) {
-      throw new Error("Membership ID is required");
-    }
-
-    // Get membership with organization
-    const membership = await db.membership.findUnique({
-      where: { id: membershipId },
-      include: {
-        organization: true,
-        user: true,
-      },
-    });
-
-    if (!membership) {
-      throw new Error("Membership not found");
-    }
-
-    // Check permissions
-    await requireRole(user.id, membership.organizationId, ["ADMIN"]);
-
-    // Don't allow removing self
-    if (membership.userId === user.id) {
-      throw new Error("Cannot remove yourself from the organization");
-    }
-
-    // Check if this is the last admin
-    if (membership.role === "ADMIN") {
-      const adminCount = await db.membership.count({
-        where: {
-          organizationId: membership.organizationId,
-          role: "ADMIN",
-        },
-      });
-
-      if (adminCount <= 1) {
-        throw new Error(
-          "Cannot remove the last admin from the organization"
-        );
-      }
-    }
-
-    // Remove from all teams in the organization
-    await db.membership.deleteMany({
-      where: {
-        userId: membership.userId,
-        organizationId: membership.organizationId,
-        teamId: { not: null },
-      },
-    });
-
-    // Delete membership
-    await db.membership.delete({
-      where: { id: membershipId },
-    });
-
-    // Log activity
-    await logActivity({
-      userId: user.id,
-      organizationId: membership.organizationId,
-      action: "MEMBER_REMOVED",
-      entityType: "MEMBERSHIP",
-      entityId: membershipId,
-      metadata: {
-        removedUserEmail: membership.user.email,
-        removedUserRole: membership.role,
-        organizationName: membership.organization.name,
-      },
-    });
-
-    revalidatePath(`/orgs/${membership.organization.slug}/members`);
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to remove member:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to remove member"
-    );
-  }
-}
-
-export async function updateMemberRole(formData: FormData) {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/auth/signin");
-  }
-
-  try {
-    const membershipId = formData.get("membershipId") as string;
-    const newRole = formData.get("role") as string;
-
-    if (!membershipId || !newRole) {
-      throw new Error("Membership ID and role are required");
-    }
-
-    // Validate role
-    const validRoles = ["ADMIN", "PRODUCT_MANAGER", "CONTRIBUTOR", "STAKEHOLDER"];
-    if (!validRoles.includes(newRole)) {
-      throw new Error("Invalid role");
-    }
-
-    // Get membership with organization
-    const membership = await db.membership.findUnique({
-      where: { id: membershipId },
-      include: {
-        organization: true,
-        user: true,
-      },
-    });
-
-    if (!membership) {
-      throw new Error("Membership not found");
-    }
-
-    // Check permissions
-    await requireRole(user.id, membership.organizationId, ["ADMIN"]);
-
-    // Don't allow changing own role
-    if (membership.userId === user.id) {
-      throw new Error("Cannot change your own role");
-    }
-
-    // If removing admin role, check if this is the last admin
-    if (membership.role === "ADMIN" && newRole !== "ADMIN") {
-      const adminCount = await db.membership.count({
-        where: {
-          organizationId: membership.organizationId,
-          role: "ADMIN",
-        },
-      });
-
-      if (adminCount <= 1) {
-        throw new Error(
-          "Cannot remove admin role from the last admin in the organization"
-        );
-      }
-    }
-
-    const oldRole = membership.role;
-
-    // Update membership role
-    const updatedMembership = await db.membership.update({
-      where: { id: membershipId },
-      data: { role: newRole as Role },
-    });
-
-    // Log activity
-    await logActivity({
-      userId: user.id,
-      organizationId: membership.organizationId,
-      action: "MEMBER_ROLE_UPDATED",
-      entityType: "MEMBERSHIP",
-      entityId: membershipId,
-      metadata: {
-        userEmail: membership.user.email,
-        oldRole,
-        newRole,
-        organizationName: membership.organization.name,
-      },
-    });
-
-    revalidatePath(`/orgs/${membership.organization.slug}/members`);
-    return { success: true, membership: updatedMembership };
-  } catch (error) {
-    console.error("Failed to update member role:", error);
-    throw new Error(
-      error instanceof Error ? error.message : "Failed to update member role"
-    );
+    return { success: false, error: error instanceof Error ? error.message : "Failed to invite user" };
   }
 }

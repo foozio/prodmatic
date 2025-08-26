@@ -67,20 +67,20 @@ async function AnalyticsContent({ orgSlug, searchParams }: {
   }
 
   // Flatten analytics data from all products
-  const allIdeas = organization?.products?.flatMap((product: ProductWithDetails) => product.ideas) || [];
-  const allCustomers = organization?.products?.flatMap((product: ProductWithDetails) => product.customers) || [];
-  const allReleases = organization?.products?.flatMap((product: ProductWithDetails) => product.releases) || [];
-  const allExperiments = organization?.products?.flatMap((product: ProductWithDetails) => product.experiments) || [];
-  const allInsights = organization?.products?.flatMap((product: ProductWithDetails) => product.insights) || [];
-  const allInterviews = organization?.products?.flatMap((product: ProductWithDetails) => product.interviews) || [];
-  const allFeedback = organization?.products?.flatMap((product: ProductWithDetails) => product.feedback) || [];
+  const allIdeas = organization?.products?.flatMap((product: ProductWithAnalytics) => product.ideas) || [];
+  const allCustomers = organization?.products?.flatMap((product: ProductWithAnalytics) => product.customers) || [];
+  const allReleases = organization?.products?.flatMap((product: ProductWithAnalytics) => product.releases) || [];
+  const allExperiments = organization?.products?.flatMap((product: ProductWithAnalytics) => product.experiments) || [];
+  const allInsights = organization?.products?.flatMap((product: ProductWithAnalytics) => product.insights) || [];
+  const allInterviews = organization?.products?.flatMap((product: ProductWithAnalytics) => product.interviews) || [];
+  const allFeedback = organization?.products?.flatMap((product: ProductWithAnalytics) => product.feedback) || [];
 
   // Calculate time-based metrics (last 30 days)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   
-  const recentIdeas = allIdeas.filter((idea: ProductWithDetails["ideas"][number]) => new Date(idea.createdAt) >= thirtyDaysAgo);
-  const recentCustomers = allCustomers.filter((customer: ProductWithDetails["customers"][number]) => new Date(customer.createdAt) >= thirtyDaysAgo);
-  const recentInsights = allInsights.filter((insight: ProductWithDetails["insights"][number]) => new Date(insight.createdAt) >= thirtyDaysAgo);
+  const recentIdeas = allIdeas.filter((idea: ProductWithAnalytics["ideas"][number]) => new Date(idea.createdAt) >= thirtyDaysAgo);
+  const recentCustomers = allCustomers.filter((customer: ProductWithAnalytics["customers"][number]) => new Date(customer.createdAt) >= thirtyDaysAgo);
+  const recentInsights = allInsights.filter((insight: ProductWithAnalytics["insights"][number]) => new Date(insight.createdAt) >= thirtyDaysAgo);
 
   const metrics = {
     totalIdeas: allIdeas.length,
@@ -88,7 +88,7 @@ async function AnalyticsContent({ orgSlug, searchParams }: {
     totalCustomers: allCustomers.length,
     newCustomers: recentCustomers.length,
     totalReleases: allReleases.length,
-    activeExperiments: allExperiments.filter((exp: ProductWithDetails["experiments"][number]) => exp.status === 'ACTIVE').length,
+    activeExperiments: allExperiments.filter((exp: ProductWithAnalytics["experiments"][number]) => exp.status === 'RUNNING').length,
     totalInsights: allInsights.length,
     newInsights: recentInsights.length,
     totalInterviews: allInterviews.length,
@@ -96,7 +96,7 @@ async function AnalyticsContent({ orgSlug, searchParams }: {
   };
 
   // Product performance data
-  const productMetrics = organization?.products?.map((product: ProductWithDetails) => ({
+  const productMetrics = organization?.products?.map((product: ProductWithAnalytics) => ({
     name: product.name,
     ideas: product.ideas?.length || 0,
     customers: product.customers?.length || 0,
@@ -107,18 +107,18 @@ async function AnalyticsContent({ orgSlug, searchParams }: {
 
   // Recent activity
   const recentActivity = [
-    ...recentIdeas.map((idea: ProductWithDetails["ideas"][number]) => ({
+    ...recentIdeas.map((idea: ProductWithAnalytics["ideas"][number]) => ({
       type: 'idea',
       title: idea.title,
       user: idea.creator?.name || idea.creator?.email,
       date: idea.createdAt,
-      product: organization.products.find((p: ProductWithDetails) => p.id === idea.productId)?.name,
+      product: organization.products.find((p: ProductWithAnalytics) => p.id === idea.productId)?.name,
     })),
-    ...recentInsights.map((insight: ProductWithDetails["insights"][number]) => ({
+    ...recentInsights.map((insight: ProductWithAnalytics["insights"][number]) => ({
       type: 'insight',
       title: insight.title,
       date: insight.createdAt,
-      product: organization.products.find((p: ProductWithDetails) => p.id === insight.productId)?.name,
+      product: organization.products.find((p: ProductWithAnalytics) => p.id === insight.productId)?.name,
     })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
 

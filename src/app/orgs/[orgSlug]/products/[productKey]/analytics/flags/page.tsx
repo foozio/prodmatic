@@ -9,7 +9,6 @@ import {
   ArrowLeft, 
   Plus, 
   Flag, 
-  Toggle, 
   ToggleLeft, 
   ToggleRight,
   Users,
@@ -212,7 +211,7 @@ export default async function FeatureFlagsPage({
             
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.status || ""}
+              defaultValue={resolvedSearchParams.status || ""}
             >
               <option value="">All Status</option>
               <option value="enabled">Enabled</option>
@@ -221,7 +220,7 @@ export default async function FeatureFlagsPage({
 
             <select 
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
-              defaultValue={searchParams.feature || ""}
+              defaultValue={resolvedSearchParams.feature || ""}
             >
               <option value="">All Features</option>
               {features.map((feature) => (
@@ -247,7 +246,7 @@ export default async function FeatureFlagsPage({
                 </p>
                 {canManageFlags && (
                   <Button asChild>
-                    <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/flags/new`}>
+                    <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/flags/new`}>
                       <Plus className="h-4 w-4 mr-2" />
                       Create First Flag
                     </Link>
@@ -271,7 +270,7 @@ export default async function FeatureFlagsPage({
                           <div className="flex items-center space-x-2">
                             <h3 className="text-lg font-semibold">
                               <Link
-                                href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/flags/${flag.id}`}
+                                href={`/orgs/${orgSlug}/products/${productKey}/analytics/flags/${flag.id}`}
                                 className="hover:underline"
                               >
                                 {flag.name}
@@ -348,7 +347,7 @@ export default async function FeatureFlagsPage({
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-1">
                         <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/flags/${flag.id}`}>
+                          <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/flags/${flag.id}`}>
                             View
                           </Link>
                         </Button>

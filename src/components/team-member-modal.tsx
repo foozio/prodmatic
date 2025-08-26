@@ -48,16 +48,16 @@ export function TeamMemberModal({
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState("CONTRIBUTOR");
   
-  const [state, formAction] = useFormState(addTeamMember, { success: false });
+  const [state, formAction] = useFormState(addTeamMember, { success: false, error: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
     formData.append("teamId", teamId);
     formData.append("userId", selectedUserId);
     formData.append("role", selectedRole);
     
-    formAction(formData);
+    await formAction(formData);
     
     // Close modal and reset form after successful submission
     if (state.success) {

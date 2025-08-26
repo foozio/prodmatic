@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { createOrganization } from "@/server/actions/organizations";
+import { createOrganization } from "@/server/actions/organizations-client";
 import { User } from "@prisma/client";
 
 interface OnboardingFormProps {
@@ -29,8 +29,15 @@ export function OnboardingForm({ user, asButton = false }: OnboardingFormProps) 
     setIsLoading(true);
 
     try {
+      // Generate a slug from the organization name
+      const slug = formData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'org';
+
       const result = await createOrganization({
         name: formData.name,
+        slug: slug,
         description: formData.description,
       });
 
