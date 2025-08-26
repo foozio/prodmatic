@@ -47,6 +47,22 @@ export type ProductWithDetails = Prisma.ProductGetPayload<{
   };
 }>;
 
+export type ProductWithAnalytics = Prisma.ProductGetPayload<{
+  include: {
+    ideas: {
+      include: {
+        creator: true;
+      };
+    };
+    customers: true;
+    releases: true;
+    experiments: true;
+    insights: true;
+    interviews: true;
+    feedback: true;
+  };
+}>;
+
 export type IdeaWithDetails = Prisma.IdeaGetPayload<{
   include: {
     product: true;

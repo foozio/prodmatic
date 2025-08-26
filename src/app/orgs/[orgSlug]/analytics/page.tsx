@@ -17,7 +17,7 @@ import { db } from "@/lib/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ProductWithDetails } from "@/types";
+import { ProductWithAnalytics } from "@/types";
 
 interface AnalyticsPageProps {
   params: Promise<{
