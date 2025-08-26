@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, startTransition } from "react";
 import {
   Dialog,
   DialogContent,
@@ -58,7 +58,9 @@ export function TeamMemberModal({
     formData.append("userId", selectedUserId);
     formData.append("role", selectedRole);
     
-    await formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   // Show notifications when state changes

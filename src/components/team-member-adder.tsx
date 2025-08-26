@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useActionState, startTransition } from "react";
 import { 
   Select,
   SelectContent,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserPlus } from "lucide-react";
-import { useFormState } from "react-dom";
 import { addTeamMember } from "@/server/actions/teams";
 
 interface TeamMemberAdderProps {
@@ -35,7 +34,7 @@ export function TeamMemberAdder({ teamId, organizationId, availableMembers }: Te
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState("CONTRIBUTOR");
   
-  const [state, formAction] = useFormState(addTeamMember, { success: false, error: "" });
+  const [state, formAction] = useActionState(addTeamMember, { success: false, error: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +43,9 @@ export function TeamMemberAdder({ teamId, organizationId, availableMembers }: Te
     formData.append("userId", selectedUserId);
     formData.append("role", selectedRole);
     
-    await formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
     
     // Reset form after submission
     setSelectedUserId("");
