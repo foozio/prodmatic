@@ -82,8 +82,13 @@ async function KanbanContent({ orgSlug, searchParams }: {
     throw new Error("Organization not found");
   }
 
-  // Flatten tasks from all products
-  const allTasks = organization.products.flatMap((product: any) => product.tasks);
+  // Flatten tasks from all products and include product key
+  const allTasks = organization.products.flatMap((product: any) => 
+    product.tasks.map((task: any) => ({
+      ...task,
+      productKey: product.key
+    }))
+  );
   const allSprints = organization.products.flatMap((product: any) => product.sprints);
 
   // Group tasks by status
@@ -147,7 +152,7 @@ async function KanbanContent({ orgSlug, searchParams }: {
             Board Settings
           </Button>
           <Button asChild>
-            <Link href={`/orgs/${orgSlug}/tasks/new`}>
+            <Link href={`/orgs/${orgSlug}/products/${organization.products[0]?.key || 'default'}/tasks/new`}>
               <Plus className="h-4 w-4 mr-2" />
               New Task
             </Link>
@@ -222,7 +227,7 @@ async function KanbanContent({ orgSlug, searchParams }: {
 
                         {/* Task title */}
                         <Link 
-                          href={`/orgs/${orgSlug}/tasks/${task.id}`}
+                          href={`/orgs/${orgSlug}/products/${task.productKey}/tasks/${task.id}`}
                           className="block"
                         >
                           <h4 className="font-medium text-sm text-gray-900 hover:text-blue-600 line-clamp-2">
@@ -266,7 +271,7 @@ async function KanbanContent({ orgSlug, searchParams }: {
                 className="w-full border-2 border-dashed border-gray-300 hover:border-gray-400 h-16 text-gray-500 hover:text-gray-700"
                 asChild
               >
-                <Link href={`/orgs/${orgSlug}/tasks/new?status=${status}`}>
+                <Link href={`/orgs/${orgSlug}/products/${organization.products[0]?.key || 'default'}/tasks/new?status=${status}`}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add task
                 </Link>

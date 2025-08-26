@@ -13,7 +13,7 @@ const exportRequestSchema = z.object({
   format: z.enum(["CSV", "PDF", "ZIP"]).default("CSV"),
   dateFrom: z.coerce.date().optional(),
   dateTo: z.coerce.date().optional(),
-  filters: z.record(z.any()).optional(),
+  filters: z.record(z.string(), z.any()).optional(),
 });
 
 export async function requestDataExport(

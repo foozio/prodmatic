@@ -9,7 +9,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Required for Prisma to work in serverless environments
-  serverExternalPackages: ['@prisma/client'],
+  serverExternalPackages: ['@prisma/client', 'nodemailer'],
   
   // Enable standalone output for Docker deployments
   output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,

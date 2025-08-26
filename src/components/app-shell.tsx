@@ -75,6 +75,11 @@ export function AppShell({
       icon: Package,
     },
     {
+      label: "Teams",
+      href: `/orgs/${orgSlug}/teams`,
+      icon: Users,
+    },
+    {
       label: "Ideas",
       href: `/orgs/${orgSlug}/ideas`,
       icon: Lightbulb,

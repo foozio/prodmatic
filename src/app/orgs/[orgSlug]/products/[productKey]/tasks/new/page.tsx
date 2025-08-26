@@ -13,20 +13,24 @@ import Link from "next/link";
 import { createTask } from "@/server/actions/tasks";
 
 interface NewTaskPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
     productKey: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     sprintId?: string;
     featureId?: string;
-  };
+  }>;
 }
 
 export default async function NewTaskPage({
   params,
   searchParams,
 }: NewTaskPageProps) {
+  // Await the params and searchParams promises
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -34,7 +38,7 @@ export default async function NewTaskPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: resolvedParams.orgSlug },
   });
 
   if (!organization) {
@@ -43,14 +47,14 @@ export default async function NewTaskPage({
 
   const product = await db.product.findFirst({
     where: {
-      key: params.productKey,
+      key: resolvedParams.productKey,
       organizationId: organization.id,
       deletedAt: null,
     },
   });
 
   if (!product) {
-    redirect(`/orgs/${params.orgSlug}/products`);
+    redirect(`/orgs/${resolvedParams.orgSlug}/products`);
   }
 
   // Check if user has access
@@ -98,13 +102,23 @@ export default async function NewTaskPage({
   async function handleCreateTask(formData: FormData) {
     "use server";
     
-    const result = await createTask(product!.id, organization!.id, formData);
+    // Add null check for product
+    if (!product) {
+      throw new Error("Product not found");
+    }
+    
+    // Add null check for organization
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+    
+    const result = await createTask(product.id, organization.id, formData);
     
     if (result.success) {
-      if (searchParams.sprintId) {
-        redirect(`/orgs/${params.orgSlug}/products/${params.productKey}/sprints/${searchParams.sprintId}/kanban`);
+      if (resolvedSearchParams.sprintId) {
+        redirect(`/orgs/${resolvedParams.orgSlug}/products/${resolvedParams.productKey}/sprints/${resolvedSearchParams.sprintId}/kanban`);
       } else {
-        redirect(`/orgs/${params.orgSlug}/products/${params.productKey}/sprints`);
+        redirect(`/orgs/${resolvedParams.orgSlug}/products/${resolvedParams.productKey}/sprints`);
       }
     }
     
@@ -112,9 +126,9 @@ export default async function NewTaskPage({
     console.error("Failed to create task:", result.error);
   }
 
-  const backUrl = searchParams.sprintId 
-    ? `/orgs/${params.orgSlug}/products/${params.productKey}/sprints/${searchParams.sprintId}/kanban`
-    : `/orgs/${params.orgSlug}/products/${params.productKey}/sprints`;
+  const backUrl = resolvedSearchParams.sprintId 
+    ? `/orgs/${resolvedParams.orgSlug}/products/${resolvedParams.productKey}/sprints/${resolvedSearchParams.sprintId}/kanban`
+    : `/orgs/${resolvedParams.orgSlug}/products/${resolvedParams.productKey}/sprints`;
 
   return (
     <div className="space-y-6">
@@ -297,7 +311,7 @@ export default async function NewTaskPage({
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="sprintId">Sprint</Label>
-                  <Select name="sprintId" defaultValue={searchParams.sprintId || ""}>
+                  <Select name="sprintId" defaultValue={(await searchParams).sprintId || ""}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sprint..." />
                     </SelectTrigger>
@@ -319,7 +333,7 @@ export default async function NewTaskPage({
 
                 <div className="space-y-2">
                   <Label htmlFor="featureId">Feature</Label>
-                  <Select name="featureId" defaultValue={searchParams.featureId || ""}>
+                  <Select name="featureId" defaultValue={(await searchParams).featureId || ""}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select feature..." />
                     </SelectTrigger>
