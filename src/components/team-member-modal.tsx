@@ -17,7 +17,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useFormState } from "react-dom";
+import { useActionState } from "react";
 import { addTeamMember } from "@/server/actions/teams";
 import { UserPlus } from "lucide-react";
 
@@ -48,7 +48,7 @@ export function TeamMemberModal({
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedRole, setSelectedRole] = useState("CONTRIBUTOR");
   
-  const [state, formAction] = useFormState(addTeamMember, { success: false, error: "" });
+  const [state, formAction] = useActionState(addTeamMember, { success: false, error: "" });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
