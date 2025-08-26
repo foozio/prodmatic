@@ -9,7 +9,7 @@ Use this checklist to ensure a smooth production deployment of ProdMatic.
 - [ ] **Domain configured**: DNS pointing to your hosting provider
 - [ ] **SSL certificate**: HTTPS enabled (Let's Encrypt, Cloudflare, or custom)
 - [ ] **Email service**: Resend, SendGrid, or SMTP configured
-- [ ] **Environment variables**: All required variables configured securely
+- [ ] **Environment variables**: All required variables configured securely using the [Production Environment Template](../.env.production.example)
 
 ### Code Preparation
 - [ ] **Tests passing**: All unit and integration tests pass
@@ -52,6 +52,9 @@ Use this checklist to ensure a smooth production deployment of ProdMatic.
 ### 3. Environment Variables Configuration
 
 #### Required Variables
+For a complete list of all environment variables and their descriptions, reference the production environment template:
+- **[Production Environment Template](../.env.production.example)** - Complete template with all environment variables and security best practices
+
 ```bash
 DATABASE_URL=postgresql://user:pass@host:port/db
 NEXTAUTH_SECRET=your-32-char-secret  # Generate with: openssl rand -base64 32

@@ -116,7 +116,7 @@ npx prisma db seed
 
 ### Step 1: Create Dockerfile
 
-```dockerfile
+```
 # Production Dockerfile
 FROM node:18-alpine AS deps
 RUN apk add --no-cache libc6-compat
@@ -152,7 +152,7 @@ CMD ["node", "server.js"]
 
 ### Step 2: Docker Compose Setup
 
-```yaml
+```
 # docker-compose.prod.yml
 version: '3.8'
 
@@ -198,7 +198,7 @@ volumes:
 
 ### Step 3: Nginx Configuration
 
-```nginx
+```
 # nginx.conf
 events {
     worker_connections 1024;
@@ -346,6 +346,9 @@ az container create \
 ## 🔧 Environment Configuration
 
 ### Required Environment Variables
+
+For a complete list of all environment variables and their descriptions, reference the production environment template:
+- **[Production Environment Template](../.env.production.example)** - Complete template with all environment variables and security best practices
 
 ```env
 # Core Configuration
@@ -856,6 +859,11 @@ docker-compose up -d
 - [ ] Check response times
 
 ---
+
+## 📚 Additional Documentation
+
+For more detailed information about the system architecture and design patterns, see:
+- **[System Architecture](./ARCHITECTURE.md)** - Detailed system architecture and design patterns
 
 ## 📞 Support
 

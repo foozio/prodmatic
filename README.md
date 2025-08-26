@@ -219,6 +219,9 @@ docker-compose exec app npx prisma migrate deploy
 
 ### Essential Environment Variables
 
+For production deployments, reference the comprehensive environment template:
+- **[Production Environment Template](./.env.production.example)** - Complete template with all environment variables and security best practices
+
 ```env
 # Core (Required)
 DATABASE_URL=postgresql://user:pass@host:port/db
@@ -322,8 +325,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **[Deployment Guide](./docs/DEPLOYMENT_GUIDE.md)** - Comprehensive deployment instructions for all platforms
 - **[Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist for production deployments
 - **[Changelog Guide](./docs/CHANGELOG_GUIDE.md)** - Guidelines for maintaining version history
+- **[System Architecture](./docs/ARCHITECTURE.md)** - Detailed system architecture and design patterns
 - **[Production Environment Example](./.env.production.example)** - Template for production environment variables
-- **[Docker Compose Production](./docker-compose.prod.yml)** - Ready-to-use production Docker setup
 
 ## 🆘 Support
 

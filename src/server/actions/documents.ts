@@ -27,7 +27,7 @@ const approvalSchema = z.object({
 });
 
 export async function createDocument(
-  productId: string,
+  productId: string | null,
   organizationId: string,
   formData: FormData
 ) {
@@ -48,14 +48,21 @@ export async function createDocument(
 
     const validatedData = createDocumentSchema.parse(data);
 
+    // Prepare the data for creation
+    const creationData: any = {
+      ...validatedData,
+      authorId: user.id,
+      status: "DRAFT",
+      version: 1,
+    };
+
+    // Only include productId if it's not null
+    if (productId) {
+      creationData.productId = productId;
+    }
+
     const document = await db.document.create({
-      data: {
-        ...validatedData,
-        productId,
-        authorId: user.id,
-        status: "DRAFT",
-        version: 1,
-      },
+      data: creationData,
       include: {
         author: {
           include: {
@@ -83,7 +90,13 @@ export async function createDocument(
       },
     });
 
-    revalidatePath(`/orgs/${document.product.organization.slug}/products/${document.product.key}/documents`);
+    // Redirect to the appropriate path based on whether the document is associated with a product
+    if (document.product) {
+      revalidatePath(`/orgs/${document.product.organization.slug}/products/${document.product.key}/documents`);
+    } else {
+      revalidatePath(`/orgs/${document.author.memberships[0].organization.slug}/documents`);
+    }
+    
     return { success: true, data: document };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -108,7 +121,11 @@ export async function updateDocument(
     const existingDocument = await db.document.findUnique({
       where: { id: documentId },
       include: {
-        product: true,
+        product: {
+          include: {
+            organization: true,
+          },
+        },
       },
     });
 
@@ -172,7 +189,13 @@ export async function updateDocument(
       },
     });
 
-    revalidatePath(`/orgs/${document.product.organization.slug}/products/${document.product.key}/documents`);
+    // Redirect to the appropriate path based on whether the document is associated with a product
+    if (document.product) {
+      revalidatePath(`/orgs/${document.product.organization.slug}/products/${document.product.key}/documents`);
+    } else {
+      revalidatePath(`/orgs/${document.author.memberships[0].organization.slug}/documents`);
+    }
+    
     return { success: true, data: document };
   } catch (error) {
     if (error instanceof z.ZodError) {
