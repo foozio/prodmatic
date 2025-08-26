@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { useActionState } from "react";
 import { addTeamMember } from "@/server/actions/teams";
 import { UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 interface TeamMemberModalProps {
   teamId: string;
@@ -58,14 +59,20 @@ export function TeamMemberModal({
     formData.append("role", selectedRole);
     
     await formAction(formData);
-    
-    // Close modal and reset form after successful submission
-    if (state.success) {
+  };
+
+  // Show notifications when state changes
+  React.useEffect(() => {
+    if (state.error) {
+      toast.error(state.error);
+    } else if (state.success) {
+      toast.success("Team member added successfully!");
+      // Close modal and reset form after successful submission
       setOpen(false);
       setSelectedUserId("");
       setSelectedRole("CONTRIBUTOR");
     }
-  };
+  }, [state]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -131,18 +138,6 @@ export function TeamMemberModal({
               </Select>
             </div>
           </div>
-          
-          {state.error && (
-            <div className="text-sm text-destructive">
-              {state.error}
-            </div>
-          )}
-          
-          {state.success && (
-            <div className="text-sm text-green-600">
-              Team member added successfully!
-            </div>
-          )}
           
           <div className="flex justify-end space-x-2">
             <Button

@@ -39,6 +39,10 @@ const documentTypeLabels = {
   PROPOSAL: "Proposal",
   GUIDE: "User Guide",
   OTHER: "Other Document",
+  POST_MORTEM: "Post Mortem",
+  LAUNCH_PLAN: "Launch Plan",
+  SUNSET_PLAN: "Sunset Plan",
+  TEMPLATE: "Template",
 };
 
 const statusColors = {
@@ -47,6 +51,7 @@ const statusColors = {
   APPROVED: "bg-green-500",
   REJECTED: "bg-red-500",
   ARCHIVED: "bg-gray-400",
+  PUBLISHED: "bg-blue-500",
 };
 
 const statusIcons = {
@@ -55,6 +60,7 @@ const statusIcons = {
   APPROVED: CheckCircle,
   REJECTED: XCircle,
   ARCHIVED: FileText,
+  PUBLISHED: CheckCircle,
 };
 
 export default async function DocumentsPage({
@@ -305,7 +311,7 @@ export default async function DocumentsPage({
                                 </AvatarFallback>
                               </Avatar>
                               <span>
-                                {document.author.profile?.displayName || document.author.name || document.author.email}
+                                {document.author.name || document.author.email}
                               </span>
                             </div>
                             <span>
