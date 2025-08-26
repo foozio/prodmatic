@@ -354,7 +354,7 @@ ProdMatic v1.0.0 is a complete, production-ready product management platform wit
 
 ---
 
-## 🧑‍💻 Creator
+## 🧑‍💻 Full-Snack Developer
 
 **Nuzli L. Hernawan**
 - LinkedIn: [https://www.linkedin.com/in/nuzlilatief](https://www.linkedin.com/in/nuzlilatief)
