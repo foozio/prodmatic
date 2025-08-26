@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Addressed revalidatePath import issues in client components
 - Corrected database relation naming inconsistencies
 - Fixed Zod error handling and type validation issues
+- Resolved TypeScript indexing errors in document page for missing document types and statuses
 
 ### Changed
 - Updated Next.js configuration to ignore build errors for development speed
