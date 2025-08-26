@@ -23,20 +23,22 @@ import Link from "next/link";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from "date-fns";
 
 interface AnalyticsPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
     productKey: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     period?: string;
     status?: string;
-  };
+  }>;
 }
 
 export default async function AnalyticsPage({
   params,
   searchParams,
 }: AnalyticsPageProps) {
+  const { orgSlug, productKey } = await params;
+  const resolvedSearchParams = await searchParams;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -44,7 +46,7 @@ export default async function AnalyticsPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
   });
 
   if (!organization) {
@@ -53,14 +55,14 @@ export default async function AnalyticsPage({
 
   const product = await db.product.findFirst({
     where: {
-      key: params.productKey,
+      key: productKey,
       organizationId: organization.id,
       deletedAt: null,
     },
   });
 
   if (!product) {
-    redirect(`/orgs/${params.orgSlug}/products`);
+    redirect(`/orgs/${orgSlug}/products`);
   }
 
   // Check if user has access
@@ -76,9 +78,9 @@ export default async function AnalyticsPage({
     deletedAt: null,
   };
 
-  if (searchParams.status === "active") {
+  if (resolvedSearchParams.status === "active") {
     whereConditions.isActive = true;
-  } else if (searchParams.status === "inactive") {
+  } else if (resolvedSearchParams.status === "inactive") {
     whereConditions.isActive = false;
   }
 
@@ -161,13 +163,13 @@ export default async function AnalyticsPage({
           {canManageKPIs && (
             <>
               <Button variant="outline" asChild>
-                <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/experiments/new`}>
+                <Link href={`/orgs/${orgSlug}/products/${productKey}/experiments/new`}>
                   <Plus className="h-4 w-4 mr-2" />
                   New Experiment
                 </Link>
               </Button>
               <Button asChild>
-                <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/new`}>
+                <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/new`}>
                   <Plus className="h-4 w-4 mr-2" />
                   New KPI
                 </Link>

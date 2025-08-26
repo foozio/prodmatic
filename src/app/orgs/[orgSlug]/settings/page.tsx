@@ -12,14 +12,15 @@ import { updateOrganization, deleteOrganization } from "@/server/actions/organiz
 import { Settings, Users, Shield, Trash2 } from "lucide-react";
 
 interface OrganizationSettingsPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
-  };
+  }>;
 }
 
 export default async function OrganizationSettingsPage({
   params,
 }: OrganizationSettingsPageProps) {
+  const { orgSlug } = await params;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -27,7 +28,7 @@ export default async function OrganizationSettingsPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
     include: {
       memberships: {
         include: {
@@ -57,7 +58,7 @@ export default async function OrganizationSettingsPage({
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Organization Settings</h1>
         <p className="text-muted-foreground">
-          Manage your organization's settings and configuration
+          Manage your organization&apos;s settings and configuration
         </p>
       </div>
 

@@ -26,21 +26,23 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 interface ExperimentsPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
     productKey: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     type?: string;
     status?: string;
     owner?: string;
-  };
+  }>;
 }
 
 export default async function ExperimentsPage({
   params,
   searchParams,
 }: ExperimentsPageProps) {
+  const { orgSlug, productKey } = await params;
+  const resolvedSearchParams = await searchParams;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -48,7 +50,7 @@ export default async function ExperimentsPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
   });
 
   if (!organization) {
@@ -57,14 +59,14 @@ export default async function ExperimentsPage({
 
   const product = await db.product.findFirst({
     where: {
-      key: params.productKey,
+      key: productKey,
       organizationId: organization.id,
       deletedAt: null,
     },
   });
 
   if (!product) {
-    redirect(`/orgs/${params.orgSlug}/products`);
+    redirect(`/orgs/${orgSlug}/products`);
   }
 
   // Check if user has access
@@ -81,16 +83,16 @@ export default async function ExperimentsPage({
     deletedAt: null,
   };
 
-  if (searchParams.type) {
-    whereConditions.type = searchParams.type;
+  if (resolvedSearchParams.type) {
+    whereConditions.type = resolvedSearchParams.type;
   }
 
-  if (searchParams.status) {
-    whereConditions.status = searchParams.status;
+  if (resolvedSearchParams.status) {
+    whereConditions.status = resolvedSearchParams.status;
   }
 
-  if (searchParams.owner) {
-    whereConditions.ownerId = searchParams.owner;
+  if (resolvedSearchParams.owner) {
+    whereConditions.ownerId = resolvedSearchParams.owner;
   }
 
   const experiments = await db.experiment.findMany({
@@ -156,7 +158,7 @@ export default async function ExperimentsPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics`}>
+            <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics`}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Analytics
             </Link>
@@ -171,7 +173,7 @@ export default async function ExperimentsPage({
         <div className="flex items-center space-x-2">
           {canManageExperiments && (
             <Button asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/experiments/new`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/experiments/new`}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Experiment
               </Link>

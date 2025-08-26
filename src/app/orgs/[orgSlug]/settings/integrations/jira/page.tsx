@@ -295,7 +295,7 @@ export default async function JiraIntegrationPage({
                     <div>
                       <h4 className="font-medium">Ready to connect?</h4>
                       <p className="text-sm text-muted-foreground">
-                        You'll be redirected to Jira to authorize the connection
+                        You&apos;ll be redirected to Jira to authorize the connection
                       </p>
                     </div>
                     <Button type="submit" className="flex items-center space-x-2">

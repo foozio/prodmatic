@@ -23,20 +23,22 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 interface FeatureFlagsPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
     productKey: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     status?: string;
     feature?: string;
-  };
+  }>;
 }
 
 export default async function FeatureFlagsPage({
   params,
   searchParams,
 }: FeatureFlagsPageProps) {
+  const { orgSlug, productKey } = await params;
+  const resolvedSearchParams = await searchParams;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -44,7 +46,7 @@ export default async function FeatureFlagsPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
   });
 
   if (!organization) {
@@ -53,14 +55,14 @@ export default async function FeatureFlagsPage({
 
   const product = await db.product.findFirst({
     where: {
-      key: params.productKey,
+      key: productKey,
       organizationId: organization.id,
       deletedAt: null,
     },
   });
 
   if (!product) {
-    redirect(`/orgs/${params.orgSlug}/products`);
+    redirect(`/orgs/${orgSlug}/products`);
   }
 
   // Check if user has access
@@ -77,14 +79,14 @@ export default async function FeatureFlagsPage({
     deletedAt: null,
   };
 
-  if (searchParams.status === "enabled") {
+  if (resolvedSearchParams.status === "enabled") {
     whereConditions.enabled = true;
-  } else if (searchParams.status === "disabled") {
+  } else if (resolvedSearchParams.status === "disabled") {
     whereConditions.enabled = false;
   }
 
-  if (searchParams.feature) {
-    whereConditions.featureId = searchParams.feature;
+  if (resolvedSearchParams.feature) {
+    whereConditions.featureId = resolvedSearchParams.feature;
   }
 
   const featureFlags = await db.featureFlag.findMany({
@@ -123,7 +125,7 @@ export default async function FeatureFlagsPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics`}>
+            <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics`}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Analytics
             </Link>
@@ -138,7 +140,7 @@ export default async function FeatureFlagsPage({
         <div className="flex items-center space-x-2">
           {canManageFlags && (
             <Button asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/flags/new`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/flags/new`}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Flag
               </Link>

@@ -13,9 +13,10 @@ import { User } from "@prisma/client";
 
 interface OnboardingFormProps {
   user: User;
+  asButton?: boolean;
 }
 
-export function OnboardingForm({ user }: OnboardingFormProps) {
+export function OnboardingForm({ user, asButton = false }: OnboardingFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -45,6 +46,18 @@ export function OnboardingForm({ user }: OnboardingFormProps) {
       setIsLoading(false);
     }
   };
+
+  if (asButton) {
+    return (
+      <Button 
+        onClick={() => router.push("/organizations/new")} 
+        className="w-full sm:w-auto"
+        disabled={isLoading}
+      >
+        {isLoading ? "Creating..." : "Create New Organization"}
+      </Button>
+    );
+  }
 
   return (
     <Card className="max-w-lg mx-auto">

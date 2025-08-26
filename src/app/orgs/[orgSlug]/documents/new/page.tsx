@@ -12,9 +12,9 @@ import Link from "next/link";
 import { createDocument } from "@/server/actions/documents";
 
 interface NewDocumentPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
-  };
+  }>;
 }
 
 const documentTypes = [
@@ -63,6 +63,7 @@ const documentTypes = [
 export default async function NewDocumentPage({
   params,
 }: NewDocumentPageProps) {
+  const { orgSlug } = await params;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -70,7 +71,7 @@ export default async function NewDocumentPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
     include: {
       products: {
         where: {
@@ -108,7 +109,7 @@ export default async function NewDocumentPage({
     const result = await createDocument(finalProductId || "", organization!.id, formData);
     
     if (result.success) {
-      redirect(`/orgs/${params.orgSlug}/documents/${result.data!.id}`);
+      redirect(`/orgs/${orgSlug}/documents/${result.data!.id}`);
     }
     
     console.error("Failed to create document:", result.error);
@@ -118,7 +119,7 @@ export default async function NewDocumentPage({
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/orgs/${params.orgSlug}/documents`}>
+          <Link href={`/orgs/${orgSlug}/documents`}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Documents
           </Link>

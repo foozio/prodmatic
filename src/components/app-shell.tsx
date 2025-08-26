@@ -158,7 +158,7 @@ export function AppShell({
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/onboarding">
+              <Link href="/organizations/new">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Organization
               </Link>

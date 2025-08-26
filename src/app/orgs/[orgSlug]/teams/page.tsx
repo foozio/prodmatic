@@ -2,14 +2,14 @@ import { getCurrentUser, requireRole } from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { createTeam, updateTeam, deleteTeam, addTeamMember, removeTeamMember } from "@/server/actions/teams";
-import { Users, Plus, Settings, Trash2, UserPlus } from "lucide-react";
+import { TeamMemberModal } from "@/components/team-member-modal";
+import { createTeam, deleteTeam } from "@/server/actions/teams";
+import { Users, Plus, Settings, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
@@ -227,10 +227,14 @@ export default async function OrganizationTeamsPage({
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">Team Members</h4>
                       {canManageTeams && (
-                        <Button variant="outline" size="sm">
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Add Member
-                        </Button>
+                        <TeamMemberModal 
+                          teamId={team.id}
+                          teamName={team.name}
+                          organizationId={organization.id}
+                          availableMembers={organization.memberships.filter(m => 
+                            !team.memberships.some(tm => tm.userId === m.userId)
+                          )}
+                        />
                       )}
                     </div>
                     

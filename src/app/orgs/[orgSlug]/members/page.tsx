@@ -14,14 +14,15 @@ import { UserPlus, Users, Mail, MoreHorizontal } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface OrganizationMembersPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
-  };
+  }>;
 }
 
 export default async function OrganizationMembersPage({
   params,
 }: OrganizationMembersPageProps) {
+  const { orgSlug } = await params;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -29,7 +30,7 @@ export default async function OrganizationMembersPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
     include: {
       memberships: {
         include: {

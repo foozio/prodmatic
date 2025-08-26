@@ -1,13 +1,35 @@
-import { getCurrentUser, requireRole } from "@/lib/auth-helpers";
+import { 
+  getCurrentUser, 
+  requireRole 
+} from "@/lib/auth-helpers";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { addTeamMember, removeTeamMember } from "@/server/actions/teams";
-import { Users, Settings, UserPlus, UserMinus, Package, Calendar } from "lucide-react";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { TeamMemberAdder } from "@/components/team-member-adder";
+import { removeTeamMember, updateTeamMemberRole } from "@/server/actions/teams";
+import { 
+  Users, 
+  Settings, 
+  UserPlus, 
+  UserMinus, 
+  Package 
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
@@ -202,21 +224,47 @@ export default async function TeamDetailPage({
                         <div className="text-sm text-muted-foreground">
                           {membership.user.email}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          Joined {formatDistanceToNow(membership.createdAt)} ago
+                        <div className="flex items-center space-x-2">
+                          <div className="text-xs text-muted-foreground">
+                            Joined {formatDistanceToNow(membership.createdAt)} ago
+                          </div>
                         </div>
                       </div>
                     </div>
-                    {canManageTeam && membership.userId !== user.id && (
-                      <form action={removeTeamMember}>
-                        <input type="hidden" name="membershipId" value={membership.id} />
-                        <Button type="submit" size="sm" variant="destructive">
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      </form>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {canManageTeam && membership.userId !== user.id ? (
+                        <form action={updateTeamMemberRole} className="flex items-center space-x-2">
+                          <input type="hidden" name="membershipId" value={membership.id} />
+                          <Select name="role" defaultValue={membership.role}>
+                            <SelectTrigger className="w-40">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="CONTRIBUTOR">Contributor</SelectItem>
+                              <SelectItem value="PRODUCT_MANAGER">Product Manager</SelectItem>
+                              <SelectItem value="ADMIN">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button type="submit" size="sm" variant="outline">
+                            Update
+                          </Button>
+                        </form>
+                      ) : (
+                        <Badge variant="secondary">{membership.role}</Badge>
+                      )}
+                      
+                      {canManageTeam && membership.userId !== user.id && (
+                        <form action={removeTeamMember}>
+                          <input type="hidden" name="membershipId" value={membership.id} />
+                          <Button type="submit" size="sm" variant="destructive">
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </form>
+                      )}
+                    </div>
                   </div>
                 ))}
+
               </div>
             )}
           </CardContent>
@@ -280,60 +328,11 @@ export default async function TeamDetailPage({
 
       {/* Available Members to Add */}
       {canManageTeam && availableMembers.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Add Team Members</CardTitle>
-            <CardDescription>
-              Organization members who can be added to this team
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2">
-              {availableMembers.slice(0, 6).map((membership) => (
-                <div
-                  key={membership.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={membership.user.image || undefined}
-                        alt={membership.user.name || membership.user.email}
-                      />
-                      <AvatarFallback>
-                        {(membership.user.name || membership.user.email)
-                          .charAt(0)
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium text-sm">
-                        {membership.user.name || membership.user.email}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {membership.role}
-                      </div>
-                    </div>
-                  </div>
-                  <form action={addTeamMember}>
-                    <input type="hidden" name="teamId" value={team.id} />
-                    <input type="hidden" name="userId" value={membership.userId} />
-                    <Button type="submit" size="sm" variant="outline">
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </form>
-                </div>
-              ))}
-            </div>
-            {availableMembers.length > 6 && (
-              <div className="mt-3 text-center">
-                <Button variant="outline" size="sm">
-                  View All Available Members ({availableMembers.length})
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <TeamMemberAdder 
+          teamId={team.id} 
+          organizationId={organization.id} 
+          availableMembers={availableMembers} 
+        />
       )}
 
       {/* Team Stats */}

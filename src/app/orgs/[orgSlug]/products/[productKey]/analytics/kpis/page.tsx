@@ -25,21 +25,23 @@ import Link from "next/link";
 import { format } from "date-fns";
 
 interface KPIDashboardPageProps {
-  params: {
+  params: Promise<{
     orgSlug: string;
     productKey: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     frequency?: string;
     status?: string;
     owner?: string;
-  };
+  }>;
 }
 
 export default async function KPIDashboardPage({
   params,
   searchParams,
 }: KPIDashboardPageProps) {
+  const { orgSlug, productKey } = await params;
+  const resolvedSearchParams = await searchParams;
   const user = await getCurrentUser();
   
   if (!user) {
@@ -47,7 +49,7 @@ export default async function KPIDashboardPage({
   }
 
   const organization = await db.organization.findUnique({
-    where: { slug: params.orgSlug },
+    where: { slug: orgSlug },
   });
 
   if (!organization) {
@@ -56,14 +58,14 @@ export default async function KPIDashboardPage({
 
   const product = await db.product.findFirst({
     where: {
-      key: params.productKey,
+      key: productKey,
       organizationId: organization.id,
       deletedAt: null,
     },
   });
 
   if (!product) {
-    redirect(`/orgs/${params.orgSlug}/products`);
+    redirect(`/orgs/${orgSlug}/products`);
   }
 
   // Check if user has access
@@ -79,18 +81,18 @@ export default async function KPIDashboardPage({
     deletedAt: null,
   };
 
-  if (searchParams.frequency) {
-    whereConditions.frequency = searchParams.frequency;
+  if (resolvedSearchParams.frequency) {
+    whereConditions.frequency = resolvedSearchParams.frequency;
   }
 
-  if (searchParams.status === "active") {
+  if (resolvedSearchParams.status === "active") {
     whereConditions.isActive = true;
-  } else if (searchParams.status === "inactive") {
+  } else if (resolvedSearchParams.status === "inactive") {
     whereConditions.isActive = false;
   }
 
-  if (searchParams.owner) {
-    whereConditions.ownerId = searchParams.owner;
+  if (resolvedSearchParams.owner) {
+    whereConditions.ownerId = resolvedSearchParams.owner;
   }
 
   const kpis = await db.kPI.findMany({
@@ -149,7 +151,7 @@ export default async function KPIDashboardPage({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics`}>
+            <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics`}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Analytics
             </Link>
@@ -164,7 +166,7 @@ export default async function KPIDashboardPage({
         <div className="flex items-center space-x-2">
           {canManageKPIs && (
             <Button asChild>
-              <Link href={`/orgs/${params.orgSlug}/products/${params.productKey}/analytics/kpis/new`}>
+              <Link href={`/orgs/${orgSlug}/products/${productKey}/analytics/kpis/new`}>
                 <Plus className="h-4 w-4 mr-2" />
                 New KPI
               </Link>

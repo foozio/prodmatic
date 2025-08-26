@@ -65,6 +65,7 @@ export async function createOrganization(data: {
       await tx.team.create({
         data: {
           name: "General",
+          slug: "general",
           description: "Default team for all organization members",
           organizationId: org.id,
         },

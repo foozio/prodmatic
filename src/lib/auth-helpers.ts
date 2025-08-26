@@ -18,6 +18,7 @@ export async function getCurrentUser() {
       memberships: {
         include: {
           organization: true,
+          team: true,
         },
       },
     },
@@ -92,14 +93,14 @@ export function hasRole(
   
   if (!membership) return false;
   
-  const roleHierarchy = {
+  const roleHierarchy: Record<Role, number> = {
     STAKEHOLDER: 0,
     CONTRIBUTOR: 1,
     PRODUCT_MANAGER: 2,
     ADMIN: 3,
   };
   
-  const userRoleLevel = roleHierarchy[membership.role];
+  const userRoleLevel = roleHierarchy[membership.role as Role];
   const requiredRoleLevel = roleHierarchy[minimumRole];
   
   return userRoleLevel >= requiredRoleLevel;

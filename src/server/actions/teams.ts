@@ -229,7 +229,7 @@ export async function deleteTeam(formData: FormData) {
   }
 }
 
-export async function addTeamMember(formData: FormData) {
+export async function addTeamMember(prevState: any, formData: FormData) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/auth/signin");
@@ -238,9 +238,10 @@ export async function addTeamMember(formData: FormData) {
   try {
     const teamId = formData.get("teamId") as string;
     const userId = formData.get("userId") as string;
+    const role = formData.get("role") as string || "CONTRIBUTOR"; // Default to CONTRIBUTOR if not provided
 
     if (!teamId || !userId) {
-      throw new Error("Team ID and User ID are required");
+      return { success: false, error: "Team ID and User ID are required" };
     }
 
     // Get team with organization
@@ -252,7 +253,7 @@ export async function addTeamMember(formData: FormData) {
     });
 
     if (!team) {
-      throw new Error("Team not found");
+      return { success: false, error: "Team not found" };
     }
 
     // Check permissions
@@ -267,7 +268,7 @@ export async function addTeamMember(formData: FormData) {
     });
 
     if (existingMembership) {
-      throw new Error("User is already a team member");
+      return { success: false, error: "User is already a team member" };
     }
 
     // Check if user is an organization member
@@ -279,15 +280,16 @@ export async function addTeamMember(formData: FormData) {
     });
 
     if (!orgMembership) {
-      throw new Error("User is not a member of this organization");
+      return { success: false, error: "User is not a member of this organization" };
     }
 
-    // Add team member
+    // Add team member with role
     const teamMembership = await db.membership.create({
       data: {
         teamId: teamId,
         userId: userId,
         organizationId: team.organizationId,
+        role: role, // Set the team-specific role
       },
     });
 
@@ -301,6 +303,7 @@ export async function addTeamMember(formData: FormData) {
       metadata: {
         teamName: team.name,
         addedUserId: userId,
+        role: role,
       },
     });
 
@@ -309,7 +312,72 @@ export async function addTeamMember(formData: FormData) {
     return { success: true, membership: teamMembership };
   } catch (error) {
     console.error("Failed to add team member:", error);
-    throw new Error(error instanceof Error ? error.message : "Failed to add team member");
+    return { success: false, error: error instanceof Error ? error.message : "Failed to add team member" };
+  }
+}
+
+export async function updateTeamMemberRole(prevState: any, formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/auth/signin");
+  }
+
+  try {
+    const membershipId = formData.get("membershipId") as string;
+    const role = formData.get("role") as string;
+
+    if (!membershipId || !role) {
+      return { success: false, error: "Membership ID and role are required" };
+    }
+
+    // Get team membership with team and organization
+    const teamMembership = await db.membership.findUnique({
+      where: { id: membershipId },
+      include: {
+        team: {
+          include: {
+            organization: true,
+          },
+        },
+      },
+    });
+
+    if (!teamMembership) {
+      return { success: false, error: "Team membership not found" };
+    }
+
+    // Check permissions
+    await requireRole(user.id, teamMembership.team.organizationId, ["ADMIN", "PRODUCT_MANAGER"]);
+
+    // Update team member role
+    const updatedMembership = await db.membership.update({
+      where: { id: membershipId },
+      data: {
+        role: role,
+      },
+    });
+
+    // Log activity
+    await logActivity({
+      userId: user.id,
+      organizationId: teamMembership.team.organizationId,
+      action: "TEAM_MEMBER_ROLE_UPDATED",
+      entityType: "TEAM",
+      entityId: teamMembership.team.id,
+      metadata: {
+        teamName: teamMembership.team.name,
+        updatedUserId: teamMembership.userId,
+        oldRole: teamMembership.role,
+        newRole: role,
+      },
+    });
+
+    revalidatePath(`/orgs/${teamMembership.team.organization.slug}/teams`);
+    revalidatePath(`/orgs/${teamMembership.team.organization.slug}/teams/${teamMembership.team.slug}`);
+    return { success: true, membership: updatedMembership };
+  } catch (error) {
+    console.error("Failed to update team member role:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update team member role" };
   }
 }
 

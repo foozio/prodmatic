@@ -57,6 +57,11 @@ const getLifecycleProgress = (stage: string): number => {
   return ((stages.indexOf(stage) + 1) / stages.length) * 100;
 };
 
+// Wrapper function for form action that returns void
+async function updateProductLifecycleAction(formData: FormData) {
+  await updateProductLifecycle(formData);
+}
+
 export default async function ProductDetailPage({
   params,
 }: ProductDetailPageProps) {
@@ -170,7 +175,7 @@ export default async function ProductDetailPage({
             </div>
             {canManageProduct && (
               <div className="flex items-center space-x-2">
-                <form action={updateProductLifecycle} className="flex items-center space-x-2">
+                <form action={updateProductLifecycleAction} className="flex items-center space-x-2">
                   <input type="hidden" name="productId" value={product.id} />
                   <select name="lifecycle" defaultValue={product.lifecycle} className="border rounded px-2 py-1 text-sm">
                     <option value="IDEATION">Ideation</option>
